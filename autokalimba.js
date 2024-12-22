@@ -34,13 +34,15 @@ let forceFifthInBass = false;
 
 function subSemitones() {
   // If the last voicing contains b5 or #5, drop a tritone; otherwise, drop a fourth.
-  return lastVoicing?.some((v) => v % 12 === 6 || v % 12 === 8)
-    ? 6
-    : 5;
+  return lastVoicing?.some((v) => v % 12 === 6 || v % 12 === 8) ? 6 : 5;
 }
 
 const instruments = {
-  Fluffy: { lo: 200, hi: 550, samples: [{ name: "fluffypiano.wav", freq: 261.63 }] },
+  Fluffy: {
+    lo: 200,
+    hi: 550,
+    samples: [{ name: "fluffypiano.wav", freq: 261.63 }],
+  },
   FM: {
     lo: 250,
     hi: 650,
@@ -264,7 +266,9 @@ window.addEventListener("DOMContentLoaded", (event) => {
   function setSpecialLabel() {
     if ($("#select-special-chord").value) {
       const [label, data, emoji] = $("#select-special-chord").value.split(",");
-      $("#special-chord-button").innerText = $("#emoji-labels").checked ? emoji : label;
+      $("#special-chord-button").innerText = $("#emoji-labels").checked
+        ? emoji
+        : label;
       $("#special-chord-button").dataset.chord = data;
     }
   }
@@ -370,7 +374,7 @@ window.addEventListener("DOMContentLoaded", (event) => {
   bass.addEventListener("pointerup", (e) => stop(e.pointerId));
   bass.addEventListener(
     "pointerleave",
-    (e) => e.target.className.includes("button") || stop(e.pointerId)
+    (e) => e.target.className.includes("button") || stop(e.pointerId),
   );
 
   const chordButtons = [...$$(".chord-button")];
@@ -518,7 +522,7 @@ window.addEventListener("DOMContentLoaded", (event) => {
         new PointerEvent("pointerdown", {
           pointerId: 999 + bassKbIndex,
           isPrimary: true,
-        })
+        }),
       );
     }
 
@@ -530,7 +534,7 @@ window.addEventListener("DOMContentLoaded", (event) => {
         new PointerEvent("pointerdown", {
           pointerId: 999 + bassKbIndex,
           isPrimary: true,
-        })
+        }),
       );
       forceFifthInBass = false;
     }
@@ -542,7 +546,7 @@ window.addEventListener("DOMContentLoaded", (event) => {
         new PointerEvent("pointerdown", {
           pointerId: 1999 + j,
           isPrimary: true,
-        })
+        }),
       );
     }
   });
@@ -598,15 +602,20 @@ window.addEventListener("DOMContentLoaded", (event) => {
       value = "Rhodes";
     }
     if (value !== null && value !== undefined) {
-      if (el.type === 'checkbox') {
-        el.checked = value === 'true';
+      if (el.type === "checkbox") {
+        el.checked = value === "true";
       } else {
         el.value = value;
       }
       if (el.onchange) el.onchange({ target: el });
     }
     el.addEventListener("change", (e) => {
-      window.localStorage.setItem(key, String(e.target.type === 'checkbox' ? e.target.checked : e.target.value));
+      window.localStorage.setItem(
+        key,
+        String(
+          e.target.type === "checkbox" ? e.target.checked : e.target.value,
+        ),
+      );
     });
   }
 });
