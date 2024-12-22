@@ -20,7 +20,7 @@ mix.gain.value = 1.0;
 const pointers = new Map();
 let currentBass = 220.0;
 // let frozenBass = 220.0;
-let sampleBuffers = [];
+const sampleBuffers = [];
 let strumSetting = 0.04;
 
 let bassGain = 1.0;
@@ -34,17 +34,13 @@ let forceFifthInBass = false;
 
 function subSemitones() {
   // If the last voicing contains b5 or #5, drop a tritone; otherwise, drop a fourth.
-  return lastVoicing && lastVoicing.some((v) => v % 12 === 6 || v % 12 === 8)
+  return lastVoicing?.some((v) => v % 12 === 6 || v % 12 === 8)
     ? 6
     : 5;
 }
 
-let instruments = {
-  Fluffy: {
-    lo: 200,
-    hi: 550,
-    samples: [{ name: "fluffypiano.wav", freq: 261.63 }],
-  },
+const instruments = {
+  Fluffy: { lo: 200, hi: 550, samples: [{ name: "fluffypiano.wav", freq: 261.63 }] },
   FM: {
     lo: 250,
     hi: 650,
@@ -118,7 +114,7 @@ function loadInstrument(instrument) {
   if (!instrument) return;
   sampleBuffers.length = 0;
   instrument.samples.map((s, i) => {
-    fetch("instruments/" + s.name).then(async (r) => {
+    fetch(`instruments/${s.name}`).then(async (r) => {
       const blob = await r.blob();
       const ab = await blob.arrayBuffer();
       ctx.decodeAudioData(ab, (buffer) => {
@@ -132,13 +128,14 @@ function loadInstrument(instrument) {
   });
 }
 
-let currentInstrument = instruments["Guitar"];
+let currentInstrument = instruments.Guitar;
 
 function getTuningSemitones() {
   return $("#tuning").value / 100;
 }
 
-function chordFreq(semitones) {
+function chordFreq(st) {
+  let semitones = st;
   if (bend) {
     if (semitones === 3 || semitones === 4) semitones = 2;
     if (semitones === 15 || semitones === 16) semitones = 14;
@@ -185,7 +182,7 @@ function makeOsc(freq, gainValue, delay, isBass) {
 
   const osc1 = ctx.createOscillator();
   osc1.frequency.value = 0;
-  var vgain = ctx.createGain();
+  const vgain = ctx.createGain();
   vgain.gain.value = 20;
   osc1.connect(vgain);
   vgain.connect(osc.detune);
@@ -252,7 +249,8 @@ window.addEventListener("DOMContentLoaded", (event) => {
     $("#select-instrument").appendChild(option);
   }
   $("#select-instrument").onchange = (e) => {
-    loadInstrument((currentInstrument = instruments[e.target.value]));
+    currentInstrument = instruments[e.target.value];
+    loadInstrument(currentInstrument);
   };
   $("#bass-gain").onchange = (e) => {
     bassGain = e.target.value;
@@ -276,9 +274,9 @@ window.addEventListener("DOMContentLoaded", (event) => {
     document.body.style.filter = `hue-rotate(${e.target.value}deg)`;
   };
   // Initial tuning-value text
-  $("#tuning-value").innerText = `+0¢`;
+  $("#tuning-value").innerText = "+0¢";
   $("#tuning").oninput = $("#tuning").onchange = (e) => {
-    $("#tuning-value").innerText = signed(e.target.value) + "¢";
+    $("#tuning-value").innerText = `${signed(e.target.value)}¢`;
   };
   $("#transpose").oninput = $("#transpose").onchange = (e) => {
     $("#transpose-value").innerText = signed(e.target.value);
@@ -591,10 +589,10 @@ window.addEventListener("DOMContentLoaded", (event) => {
     slider.blur();
   });
 
-  $$("input, select").forEach((el) => {
+  for (const el of $$("input, select")) {
     // Don't remember the settings toggle itself.
     if (el.id === "settings") return;
-    const key = "autokalimba-" + el.id;
+    const key = `autokalimba-${el.id}`;
     let value = window.localStorage.getItem(key);
     if (el.id === "select-instrument" && !(value in instruments)) {
       value = "Rhodes";
@@ -610,5 +608,5 @@ window.addEventListener("DOMContentLoaded", (event) => {
     el.addEventListener("change", (e) => {
       window.localStorage.setItem(key, String(e.target.type === 'checkbox' ? e.target.checked : e.target.value));
     });
-  });
+  }
 });
