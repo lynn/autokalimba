@@ -4,12 +4,15 @@
 
 @layer base {
 	h1 {
-	  @apply text-2xl;
+		@apply text-2xl;
 	}
 	h2 {
-	  @apply text-xl;
+		@apply text-xl;
 	}
-  }
+	.frcc {
+		@apply flex flex-row justify-center items-center
+	}
+}
 
 :root {
 	font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -20,4 +23,12 @@
 	text-rendering: optimizeLegibility;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
+}
+
+body {
+	touch-action: pan-x pan-y pinch-zoom;
+}
+
+* {
+	-webkit-tap-highlight-color: none;
 }

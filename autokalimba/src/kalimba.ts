@@ -1,3 +1,5 @@
+import { instruments, type InstrumentDescription } from "./instrument";
+
 /**
  * A note sounding from the kalimba.
  */
@@ -51,7 +53,7 @@ class SampleNote implements Note {
 		this.gainNode.gain.value = gain;
 
 		let closestBuffer = this.sampleBuffers[0];
-		let closestDifference = 9e99;
+		let closestDifference = Number.POSITIVE_INFINITY;
 		for (const b of this.sampleBuffers) {
 			const difference = Math.abs(frequency - b.frequency);
 			if (b.only === "bass" && !isBass) continue;
@@ -86,32 +88,7 @@ class SampleNote implements Note {
 	}
 }
 
-interface InstrumentDescription {
-	lo: number;
-	hi: number;
-	samples: { name: string; frequency: number; only?: "bass" | "chords" }[];
-}
-
-const instruments: Record<string, InstrumentDescription> = {
-	Piano: {
-		lo: 250,
-		hi: 650,
-		samples: [
-			{ name: "piano-cs3.wav", frequency: 138.59 },
-			{ name: "piano-f4.wav", frequency: 698.46 / 2 },
-		],
-	},
-	Rhodes: {
-		lo: 250,
-		hi: 650,
-		samples: [
-			{ name: "rhodes-low.wav", frequency: 110, only: "bass" },
-			{ name: "rhodes-high.wav", frequency: 329, only: "chords" },
-		],
-	},
-};
-
-class Kalimba {
+export class Kalimba {
 	private pointers: Map<number, Note[]> = new Map();
 	private sampleBuffers: SampleBuffer[] = [];
 	private mix: AudioNode;
@@ -128,6 +105,7 @@ class Kalimba {
 		});
 		this.mix.connect(compressor);
 		compressor.connect(ctx.destination);
+		this.loadInstrument(instruments.Rhodes);
 	}
 
 	async loadInstrument(description: InstrumentDescription): Promise<void> {
@@ -154,7 +132,7 @@ class Kalimba {
 			pointerId,
 			frequencies.map((frequency) => {
 				const note = new SampleNote(this.ctx, this.sampleBuffers);
-				note.start(frequency, 0.2, 0, false, this.mix);
+				note.start(frequency, 0.2, 0, true, this.mix);
 				return note;
 			}),
 		);
