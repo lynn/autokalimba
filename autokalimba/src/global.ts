@@ -8,7 +8,7 @@ const ctx = new AudioContext({
 
 export const KalimbaContext = createContext(new Kalimba(ctx));
 
-export const Settings = createContext({
+export const SettingsContext = createContext({
 	hue: signal(0),
 	sharps: signal(0),
 });

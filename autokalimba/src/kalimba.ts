@@ -1,4 +1,6 @@
+import { Signal } from "@preact/signals";
 import { instruments, type InstrumentDescription } from "./instrument";
+import { MutableRef } from "preact/hooks";
 
 /**
  * A note sounding from the kalimba.
@@ -88,10 +90,16 @@ class SampleNote implements Note {
 	}
 }
 
+interface ControllableButton {
+	ref: MutableRef<HTMLButtonElement | null>;
+	active: Signal<boolean>;
+}
+
 export class Kalimba {
 	private pointers: Map<number, Note[]> = new Map();
 	private sampleBuffers: SampleBuffer[] = [];
 	private mix: AudioNode;
+	private keyboard: Map<string, ControllableButton> = new Map();
 
 	constructor(private ctx: AudioContext) {
 		this.mix = ctx.createGain();
@@ -146,5 +154,37 @@ export class Kalimba {
 			}
 		}
 		this.pointers.delete(pointerId);
+	}
+
+	registerKeyboard(
+		key: string,
+		ref: MutableRef<HTMLButtonElement | null>,
+		active: Signal<boolean>,
+	) {
+		this.keyboard.set(key, { ref, active });
+	}
+
+	keyDown(e: KeyboardEvent) {
+		const button = this.keyboard.get(e.key);
+
+		if (button) {
+			e.preventDefault();
+			button.ref.current?.dispatchEvent(
+				new PointerEvent("pointerdown", {
+					pointerId: e.key.charCodeAt(0) + 1000,
+				}),
+			);
+			button.active.value = true;
+		}
+	}
+
+	keyUp(e: KeyboardEvent) {
+		const button = this.keyboard.get(e.key);
+
+		if (button) {
+			e.preventDefault();
+			this.pointerUp(e.key.charCodeAt(0) + 1000);
+			button.active.value = false;
+		}
 	}
 }

@@ -1,12 +1,21 @@
-import { signal } from "@preact/signals";
 import { Button } from "./Button";
-import { KalimbaContext, Settings } from "./global";
-import { useContext } from "preact/hooks";
+import { KalimbaContext, SettingsContext } from "./global";
+import { useContext, useEffect } from "preact/hooks";
+import { Settings } from "./Settings";
 
 export function App() {
-	const settings = useContext(Settings);
+	const settings = useContext(SettingsContext);
 	const kalimba = useContext(KalimbaContext);
 	const sharps = settings.sharps.value;
+
+	useEffect(() => {
+		document.body.addEventListener("keydown", (e) => {
+			kalimba.keyDown(e);
+		});
+		document.body.addEventListener("keyup", (e) => {
+			kalimba.keyUp(e);
+		});
+	}, [kalimba]);
 
 	return (
 		<div
@@ -18,30 +27,7 @@ export function App() {
 				kalimba.pointerUp(e.pointerId);
 			}}
 		>
-			<label className="flex flex-row items-center gap-4">
-				Hue:
-				<input
-					type="range"
-					min="-180"
-					max="180"
-					value={settings.hue}
-					onInput={(e) => {
-						settings.hue.value = Number(e.currentTarget.value);
-					}}
-				/>
-			</label>
-			<label className="flex flex-row items-center gap-4">
-				Sharps:
-				<input
-					type="range"
-					min="0"
-					max="5"
-					value={settings.sharps}
-					onInput={(e) => {
-						settings.sharps.value = Number(e.currentTarget.value);
-					}}
-				/>
-			</label>
+			<Settings />
 			<div className="grid grid-cols-3 gap-1">
 				<Button label={sharps > 1 ? "C♯" : "D♭"} semitone={-8} keyboard="1" />
 				<Button label={"F"} semitone={-4} keyboard="2" />
