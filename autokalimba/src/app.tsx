@@ -52,7 +52,7 @@ export function App() {
 					<Button label="m7" targetName="m7" />
 					<Button label="m6" targetName="m6" />
 
-					<Button label="7sus4" targetName="7s" />
+					<Button label="7sus" targetName="7s" />
 					<Button label="7" targetName="7" />
 					<Button label="ø" targetName="ø" />
 

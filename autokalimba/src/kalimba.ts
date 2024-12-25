@@ -1,93 +1,7 @@
-import { signal, type Signal } from "@preact/signals";
-import { instruments, type InstrumentDescription } from "./instrument";
-
-/**
- * A note sounding from the kalimba.
- */
-interface Note {
-	/**
-	 * Start playing the note. This can only be called once.
-	 */
-	start(
-		frequency: number,
-		gain: number,
-		delay: number,
-		isBass: boolean,
-		destination: AudioNode,
-	): void;
-	/**
-	 * Set the frequency of the note as it's playing.
-	 */
-	setFrequency(frequency: number): void;
-	/**
-	 * Stop playing the note. This can only be called once.
-	 */
-	stop(): void;
-}
-
-interface SampleBuffer {
-	buffer: AudioBuffer;
-	frequency: number;
-	only?: "bass" | "chords";
-}
-
-class SampleNote implements Note {
-	private bufferSource: AudioBufferSourceNode;
-	private gainNode: GainNode;
-	private chosenSampleBuffer?: SampleBuffer;
-
-	constructor(
-		private ctx: AudioContext,
-		private sampleBuffers: SampleBuffer[],
-	) {
-		this.bufferSource = ctx.createBufferSource();
-		this.gainNode = ctx.createGain();
-	}
-
-	start(
-		frequency: number,
-		gain: number,
-		delay: number,
-		isBass: boolean,
-		destination: AudioNode,
-	): void {
-		this.gainNode.gain.value = gain;
-
-		let closestBuffer = this.sampleBuffers[0];
-		let closestDifference = Number.POSITIVE_INFINITY;
-		for (const b of this.sampleBuffers) {
-			const difference = Math.abs(frequency - b.frequency);
-			if (b.only === "bass" && !isBass) continue;
-			if (b.only === "chords" && isBass) continue;
-			if (difference < closestDifference) {
-				closestBuffer = b;
-				closestDifference = difference;
-			}
-		}
-
-		this.chosenSampleBuffer = closestBuffer;
-		this.bufferSource.buffer = closestBuffer.buffer;
-		this.bufferSource.connect(this.gainNode);
-		// this.bufferSource.gainNode = gainNode;
-		// gain.connect(mix);
-		this.gainNode.connect(destination);
-		this.bufferSource.playbackRate.value = frequency / closestBuffer.frequency;
-		// this.bufferSource.autokalimbaSampleBaseFreq = closestBuffer.frequency;
-		this.bufferSource.start(this.ctx.currentTime + delay);
-	}
-
-	setFrequency(frequency: number): void {
-		if (this.chosenSampleBuffer) {
-			this.bufferSource.playbackRate.value =
-				frequency / this.chosenSampleBuffer.frequency;
-		}
-	}
-
-	stop(): void {
-		this.gainNode.gain.setTargetAtTime(0, this.ctx.currentTime + 0.05, 0.01);
-		this.bufferSource.stop(this.ctx.currentTime + 0.2);
-	}
-}
+import { type Signal, signal } from "@preact/signals";
+import { type InstrumentDescription, instruments } from "./instrument";
+import type { Note, SampleBuffer } from "./note";
+import { OscillatorNote, SampleNote } from "./note";
 
 interface TargetDescription {
 	type: "bass" | "chord";
@@ -162,16 +76,53 @@ const qwerty: Record<string, TargetName> = {
 	"/": "II/",
 };
 
+/**
+ * The autokalimba.
+ *
+ * The basic architecture is that multiple "inputs" (such as a button on the
+ * page, or a keyboard key) can activate a "target" (such as the E♭ bass note or
+ * the maj7 chord).
+ *
+ * Each target then has an `active` signal, which tells buttons to light up, and
+ * associated `notes`, which can be controlled in "aftertouch" by wiggling the
+ * pointer that activated the target.
+ */
 export class Kalimba {
+	/**
+	 * A map from `pointerId` (pointers pressing buttons on the autokalimba) to
+	 * target names they are activating.
+	 */
 	private pointers: Map<number, TargetName> = new Map();
-	private sampleBuffers: SampleBuffer[] = [];
-	private mix: AudioNode;
+
+	/**
+	 * A map from key names to target names, e.g. `"y": "Δ9"`
+	 */
+	private keyboardLayout: Record<string, TargetName> = qwerty;
+
+	/**
+	 * Map from target names to target state.
+	 */
 	private targets: Map<TargetName, Target> = new Map(
 		targetDescriptions.map(([name, description]) => [
 			name,
 			{ description, active: signal(false), notes: [] },
 		]),
 	);
+
+	/**
+	 * Sample buffers loaded for the current instrument.
+	 */
+	private sampleBuffers: SampleBuffer[] = [];
+
+	/**
+	 * A callback used to create a note.
+	 */
+	private makeNote: () => Note = () => new OscillatorNote(this.ctx);
+
+	/**
+	 * AudioNode into which all autokalimba audio is mixed.
+	 */
+	private mix: AudioNode;
 
 	constructor(private ctx: AudioContext) {
 		this.mix = ctx.createGain();
@@ -188,15 +139,19 @@ export class Kalimba {
 		this.loadInstrument(instruments.Rhodes);
 	}
 
+	/**
+	 * Load all the samples for the given instrument. When the promise resolves,
+	 * the kalimba is ready to be played.
+	 */
 	async loadInstrument(description: InstrumentDescription): Promise<void> {
-		this.sampleBuffers = [];
+		const sampleBuffers: SampleBuffer[] = [];
 		await Promise.all(
 			description.samples.map(async (sample, i) => {
-				const r = await fetch(`instruments/${sample.name}`);
-				const blob = await r.blob();
+				const response = await fetch(`instruments/${sample.name}`);
+				const blob = await response.blob();
 				const arrayBuffer = await blob.arrayBuffer();
 				this.ctx.decodeAudioData(arrayBuffer, (buffer) => {
-					this.sampleBuffers[i] = {
+					sampleBuffers[i] = {
 						buffer,
 						frequency: sample.frequency,
 						only: sample.only,
@@ -204,15 +159,23 @@ export class Kalimba {
 				});
 			}),
 		);
+
+		this.sampleBuffers = sampleBuffers;
+		this.makeNote = () => new SampleNote(this.ctx, this.sampleBuffers);
 	}
 
-	startTarget(targetName: string) {
+	/**
+	 * Initiate playback for the given target.
+	 */
+	private startTarget(targetName: string) {
 		const target = this.targets.get(targetName);
 		if (!target) return;
 
+		console.log(target);
 		const notes = target.description.semitones.map((st) => {
 			const frequency = 220 * 2 ** (st / 12);
-			const note = new SampleNote(this.ctx, this.sampleBuffers);
+			const note = this.makeNote();
+			console.log(note);
 			note.start(frequency, 0.2, 0, true, this.mix);
 			return note;
 		});
@@ -221,7 +184,10 @@ export class Kalimba {
 		target.notes = notes;
 	}
 
-	stopTarget(targetName: string) {
+	/**
+	 * Stop all notes sounding from the given target.
+	 */
+	private stopTarget(targetName: string) {
 		const target = this.targets.get(targetName);
 		if (!target) return;
 
@@ -232,17 +198,26 @@ export class Kalimba {
 		target.notes = [];
 	}
 
+	/**
+	 * Is the given target being activated? (This decides whether to light up a
+	 * button, so that the buttons still light up when you use the keyboard.)
+	 */
 	isActive(targetName: string): boolean {
 		const target = this.targets.get(targetName);
 		return target ? target.active.value : false;
 	}
 
+	/**
+	 * Called when a pointer hits a target on the autokalimba.
+	 */
 	pointerDown(pointerId: number, targetName: string) {
-		if (!this.sampleBuffers.length) return;
 		this.pointers.set(pointerId, targetName);
 		this.startTarget(targetName);
 	}
 
+	/**
+	 * Called when a pointer is released.
+	 */
 	pointerUp(pointerId: number) {
 		const targetName = this.pointers.get(pointerId);
 		this.pointers.delete(pointerId);
@@ -250,8 +225,11 @@ export class Kalimba {
 		this.stopTarget(targetName);
 	}
 
+	/**
+	 * Called when a key on the keyboard is pressed.
+	 */
 	keyDown(e: KeyboardEvent) {
-		const targetName = qwerty[e.key];
+		const targetName = this.keyboardLayout[e.key];
 
 		if (targetName) {
 			e.preventDefault();
@@ -259,8 +237,11 @@ export class Kalimba {
 		}
 	}
 
+	/**
+	 * Called when a key on the keyboard is released.
+	 */
 	keyUp(e: KeyboardEvent) {
-		const targetName = qwerty[e.key];
+		const targetName = this.keyboardLayout[e.key];
 
 		if (targetName) {
 			e.preventDefault();
