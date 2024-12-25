@@ -5,7 +5,7 @@ import { OscillatorNote, SampleNote } from "./note";
 
 interface TargetDescription {
 	type: "bass" | "chord";
-	semitones: number[];
+	notes: number[];
 }
 
 interface Target {
@@ -15,33 +15,33 @@ interface Target {
 }
 
 const targetDescriptions: [string, TargetDescription][] = [
-	["a", { type: "bass", semitones: [0] }],
-	["bb", { type: "bass", semitones: [1] }],
-	["b", { type: "bass", semitones: [2] }],
-	["c", { type: "bass", semitones: [3] }],
-	["db", { type: "bass", semitones: [4] }],
-	["d", { type: "bass", semitones: [5] }],
-	["eb", { type: "bass", semitones: [6] }],
-	["e", { type: "bass", semitones: [-5] }],
-	["f", { type: "bass", semitones: [-4] }],
-	["gb", { type: "bass", semitones: [-3] }],
-	["g", { type: "bass", semitones: [-2] }],
-	["ab", { type: "bass", semitones: [-1] }],
-	["Δ9", { type: "chord", semitones: [7, 11, 14, 16] }],
-	["m9", { type: "chord", semitones: [7, 10, 14, 15] }],
-	["7s", { type: "chord", semitones: [7, 10, 12, 17] }],
-	["7b9", { type: "chord", semitones: [7, 10, 13, 16] }],
-	["13s", { type: "chord", semitones: [10, 14, 17, 21] }],
-	["Δ", { type: "chord", semitones: [7, 11, 12, 16] }],
-	["m7", { type: "chord", semitones: [7, 10, 12, 15] }],
-	["7", { type: "chord", semitones: [7, 10, 12, 16] }],
-	["7#5", { type: "chord", semitones: [8, 10, 12, 16] }],
-	["13", { type: "chord", semitones: [10, 14, 16, 21] }],
-	["6", { type: "chord", semitones: [7, 9, 12, 16] }],
-	["m6", { type: "chord", semitones: [7, 9, 12, 15] }],
-	["ø", { type: "chord", semitones: [6, 10, 12, 15] }],
-	["o", { type: "chord", semitones: [6, 9, 12, 15] }],
-	["II/", { type: "chord", semitones: [9, 14, 12, 18] }],
+	["a", { type: "bass", notes: [0] }],
+	["bb", { type: "bass", notes: [1] }],
+	["b", { type: "bass", notes: [2] }],
+	["c", { type: "bass", notes: [3] }],
+	["db", { type: "bass", notes: [4] }],
+	["d", { type: "bass", notes: [5] }],
+	["eb", { type: "bass", notes: [6] }],
+	["e", { type: "bass", notes: [-5] }],
+	["f", { type: "bass", notes: [-4] }],
+	["gb", { type: "bass", notes: [-3] }],
+	["g", { type: "bass", notes: [-2] }],
+	["ab", { type: "bass", notes: [-1] }],
+	["Δ9", { type: "chord", notes: [7, 11, 14, 16] }],
+	["m9", { type: "chord", notes: [7, 10, 14, 15] }],
+	["7s", { type: "chord", notes: [7, 10, 12, 17] }],
+	["7b9", { type: "chord", notes: [7, 10, 13, 16] }],
+	["13s", { type: "chord", notes: [10, 14, 17, 21] }],
+	["Δ", { type: "chord", notes: [7, 11, 12, 16] }],
+	["m7", { type: "chord", notes: [7, 10, 12, 15] }],
+	["7", { type: "chord", notes: [7, 10, 12, 16] }],
+	["7#5", { type: "chord", notes: [8, 10, 12, 16] }],
+	["13", { type: "chord", notes: [10, 14, 16, 21] }],
+	["6", { type: "chord", notes: [7, 9, 12, 16] }],
+	["m6", { type: "chord", notes: [7, 9, 12, 15] }],
+	["ø", { type: "chord", notes: [6, 10, 12, 15] }],
+	["o", { type: "chord", notes: [6, 9, 12, 15] }],
+	["II/", { type: "chord", notes: [9, 14, 12, 18] }],
 ];
 
 type TargetName = string;
@@ -124,6 +124,9 @@ export class Kalimba {
 	 */
 	private mix: AudioNode;
 
+	public strumDelay = 0.06;
+	public strumStyle: undefined | "random" | "up" | "down" | "timed" = "random";
+
 	constructor(private ctx: AudioContext) {
 		this.mix = ctx.createGain();
 		// Default values except threshold and knee
@@ -164,24 +167,53 @@ export class Kalimba {
 		this.makeNote = () => new SampleNote(this.ctx, this.sampleBuffers);
 	}
 
-	/**
-	 * Initiate playback for the given target.
-	 */
-	private startTarget(targetName: string) {
-		const target = this.targets.get(targetName);
-		if (!target) return;
+	private noteDelay(baseDelay: number): number {
+		if (this.strumStyle === undefined) {
+			return 0;
+		}
 
-		console.log(target);
-		const notes = target.description.semitones.map((st) => {
-			const frequency = 220 * 2 ** (st / 12);
-			const note = this.makeNote();
-			console.log(note);
-			note.start(frequency, 0.2, 0, true, this.mix);
-			return note;
-		});
+		if (this.strumStyle === "random") {
+			return this.strumDelay * Math.random();
+		}
+
+		const factor = this.strumStyle === "up" ? baseDelay : 1 - baseDelay;
+		const slightlyRandom = 1 + (Math.random() - 0.5) * 0.23;
+		return this.strumDelay * factor * slightlyRandom;
+	}
+
+	private playBassNote(semitones: number): Note {
+		const frequency = 220 * 2 ** (semitones / 12);
+		const note = this.makeNote();
+		note.start(frequency, 0.5, 0, true, this.mix);
+		return note;
+	}
+
+	private playChordNote(semitones: number, delay: number): Note {
+		const frequency = 220 * 2 ** (semitones / 12);
+		const note = this.makeNote();
+		note.start(frequency, 0.2, delay, false, this.mix);
+		return note;
+	}
+
+	/**
+	 * Initiate playback for the given target. Return whether initiation was
+	 * successful (i.e. a target by this name exists and was not yet active).
+	 */
+	private startTarget(targetName: string): boolean {
+		const target = this.targets.get(targetName);
+		if (!target || target.active.value) {
+			return false;
+		}
+
+		const notes = target.description.notes.map((st, i, sts) =>
+			target.description.type === "bass"
+				? this.playBassNote(st)
+				: this.playChordNote(st, this.noteDelay(i / sts.length)),
+		);
 
 		target.active.value = true;
 		target.notes = notes;
+		return true;
 	}
 
 	/**
@@ -211,8 +243,9 @@ export class Kalimba {
 	 * Called when a pointer hits a target on the autokalimba.
 	 */
 	pointerDown(pointerId: number, targetName: string) {
-		this.pointers.set(pointerId, targetName);
-		this.startTarget(targetName);
+		if (this.startTarget(targetName)) {
+			this.pointers.set(pointerId, targetName);
+		}
 	}
 
 	/**
@@ -225,15 +258,22 @@ export class Kalimba {
 		this.stopTarget(targetName);
 	}
 
+	private keysHeld: Set<string> = new Set();
+
 	/**
 	 * Called when a key on the keyboard is pressed.
 	 */
 	keyDown(e: KeyboardEvent) {
+		if (e.repeat) return;
+		if (this.keysHeld.has(e.key)) return;
+
 		const targetName = this.keyboardLayout[e.key];
 
 		if (targetName) {
 			e.preventDefault();
-			this.startTarget(targetName);
+			if (this.startTarget(targetName)) {
+				this.keysHeld.add(e.key);
+			}
 		}
 	}
 
@@ -241,6 +281,7 @@ export class Kalimba {
 	 * Called when a key on the keyboard is released.
 	 */
 	keyUp(e: KeyboardEvent) {
+		if (!this.keysHeld.delete(e.key)) return;
 		const targetName = this.keyboardLayout[e.key];
 
 		if (targetName) {
