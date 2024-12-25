@@ -1,29 +1,37 @@
 import { type MutableRef, useContext, useEffect, useRef } from "preact/hooks";
 import { KalimbaContext } from "./global";
-import { useSignal } from "@preact/signals";
+
 export function Button({
 	label,
-	semitone,
-	keyboard,
-}: { label: string; semitone: number; keyboard: string }) {
+	targetName,
+}: { label: string; targetName: string }) {
 	const kalimba = useContext(KalimbaContext);
-	const active = useSignal(false);
 	const buttonRef: MutableRef<HTMLButtonElement | null> = useRef(null);
-	useEffect(() => {
-		kalimba.registerKeyboard(keyboard, buttonRef, active);
-	}, [kalimba, keyboard, active]);
+	const active = kalimba.isActive(targetName);
 	return (
 		<button
 			ref={buttonRef}
 			type="button"
 			className={`w-20 h-20 frcc text-4xl rounded-2xl
-                text-white ${active.value ? "bg-orange-400" : "bg-gray-400"} active:bg-orange-400
-                cursor-pointer select-none`}
+                text-white ${active ? "bg-orange-400" : "bg-gray-400"} active:bg-orange-400
+                cursor-pointer select-none touch-none`}
 			onPointerDown={(e) => {
-				kalimba.pointerDown(e.pointerId, [220 * 2 ** (semitone / 12)]);
+				kalimba.pointerDown(e.pointerId, targetName);
+			}}
+			onTouchStart={(e) => {
+				// Prevent selecting them with long taps:
+				e.preventDefault();
 			}}
 		>
-			{label}
+			<span
+				style={
+					label.length >= 4
+						? { transform: "scaleX(0.8)", letterSpacing: "-2px" }
+						: {}
+				}
+			>
+				{label}
+			</span>
 		</button>
 	);
 }
