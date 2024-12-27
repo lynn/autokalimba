@@ -1,3 +1,5 @@
+import { Instrument } from "./instrument";
+
 /**
  * A note sounding from the kalimba.
  */
@@ -9,7 +11,6 @@ export interface Note {
 		frequency: number,
 		gain: number,
 		delay: number,
-		isBass: boolean,
 		destination: AudioNode,
 	): void;
 	/**
@@ -22,7 +23,7 @@ export interface Note {
 	stop(): void;
 }
 
-export interface SampleBuffer {
+export interface Sample {
 	buffer: AudioBuffer;
 	frequency: number;
 	only?: "bass" | "chords";
@@ -31,11 +32,10 @@ export interface SampleBuffer {
 export class SampleNote implements Note {
 	private bufferSource: AudioBufferSourceNode;
 	private gainNode: GainNode;
-	private chosenSampleBuffer?: SampleBuffer;
 
 	constructor(
 		private ctx: AudioContext,
-		private sampleBuffers: SampleBuffer[],
+		private chosenSample: Sample,
 	) {
 		this.bufferSource = ctx.createBufferSource();
 		this.gainNode = ctx.createGain();
@@ -45,39 +45,22 @@ export class SampleNote implements Note {
 		frequency: number,
 		gain: number,
 		delay: number,
-		isBass: boolean,
 		destination: AudioNode,
 	): void {
 		this.gainNode.gain.value = gain;
-
-		let closestBuffer = this.sampleBuffers[0];
-		let closestDifference = Number.POSITIVE_INFINITY;
-		for (const b of this.sampleBuffers) {
-			const difference = Math.abs(frequency - b.frequency);
-			if (b.only === "bass" && !isBass) continue;
-			if (b.only === "chords" && isBass) continue;
-			if (difference < closestDifference) {
-				closestBuffer = b;
-				closestDifference = difference;
-			}
-		}
-
-		this.chosenSampleBuffer = closestBuffer;
-		this.bufferSource.buffer = closestBuffer.buffer;
+		// const sample = this.instrument.chooseSample(frequency, isBass);
+		// this.chosenSample = sample;
+		this.bufferSource.buffer = this.chosenSample.buffer;
 		this.bufferSource.connect(this.gainNode);
-		// this.bufferSource.gainNode = gainNode;
-		// gain.connect(mix);
 		this.gainNode.connect(destination);
-		this.bufferSource.playbackRate.value = frequency / closestBuffer.frequency;
-		// this.bufferSource.autokalimbaSampleBaseFreq = closestBuffer.frequency;
+		this.bufferSource.playbackRate.value =
+			frequency / this.chosenSample.frequency;
 		this.bufferSource.start(this.ctx.currentTime + delay);
 	}
 
 	setFrequency(frequency: number): void {
-		if (this.chosenSampleBuffer) {
-			this.bufferSource.playbackRate.value =
-				frequency / this.chosenSampleBuffer.frequency;
-		}
+		this.bufferSource.playbackRate.value =
+			frequency / this.chosenSample.frequency;
 	}
 
 	stop(): void {
@@ -86,37 +69,96 @@ export class SampleNote implements Note {
 	}
 }
 
-export class OscillatorNote implements Note {
-	private oscillator: OscillatorNode;
-	private gainNode: GainNode;
+export interface PatchEcho {
+	minDelay: number;
+	maxDelay: number;
+	volumeFactor: number;
+	pitchFactor: number;
+}
 
-	constructor(private ctx: AudioContext) {
-		this.oscillator = ctx.createOscillator();
-		this.gainNode = ctx.createGain();
+/**
+ * A synthesizer patch.
+ */
+export interface Patch {
+	attack: number;
+	decay: number;
+	echoes?: PatchEcho[];
+}
+
+export class OscillatorNote implements Note {
+	private oscillators: OscillatorNode[] = [];
+	private wave: PeriodicWave;
+
+	constructor(
+		private ctx: AudioContext,
+		private patch: Patch,
+	) {
+		this.wave = ctx.createPeriodicWave(
+			new Float32Array([0, 0, 0, 0, 0, 0]),
+			new Float32Array([0, 1, 0.2, 0.2, 0, 0.05]),
+		);
+		this.wave = ctx.createPeriodicWave(
+			new Float32Array([0, 0, 0, 0, 0, 0]),
+			new Float32Array([0, 1, 1 / 2, 1 / 3, 1 / 4, 1 / 5]),
+		);
+	}
+
+	chime(
+		frequency: number,
+		volume: number,
+		delay: number,
+		destination: AudioNode,
+	): void {
+		const now = this.ctx.currentTime;
+		const oscillator = this.ctx.createOscillator();
+		const gain = this.ctx.createGain();
+		this.oscillators.push(oscillator);
+
+		oscillator.setPeriodicWave(this.wave);
+		const pan = this.ctx.createStereoPanner();
+		pan.pan.setValueAtTime(Math.random() * 0.6 - 0.3, now);
+		pan.connect(gain);
+
+		const attackTime = now + delay;
+		const decayTime = now + delay + this.patch.attack;
+		oscillator.connect(pan);
+		gain.connect(destination);
+		gain.gain.value = 0;
+		gain.gain.setTargetAtTime(volume, attackTime, this.patch.attack);
+		gain.gain.setTargetAtTime(0, decayTime, this.patch.decay);
+
+		oscillator.frequency.setValueAtTime(frequency / 2, this.ctx.currentTime);
+		oscillator.start(now + delay);
 	}
 
 	start(
 		frequency: number,
-		gain: number,
+		volume: number,
 		delay: number,
-		isBass: boolean,
 		destination: AudioNode,
 	): void {
-		this.gainNode.gain.value = gain;
-		this.oscillator.type = "triangle";
-		this.oscillator.connect(this.gainNode);
-		this.gainNode.connect(destination);
-		this.oscillator.frequency.value = frequency;
-		this.oscillator.start(this.ctx.currentTime + delay);
-        console.log(this.oscillator);
+		this.chime(frequency, volume, delay, destination);
+		for (const echo of this.patch.echoes ?? []) {
+			const time =
+				delay + echo.minDelay + Math.random() * (echo.maxDelay - echo.minDelay);
+			this.chime(
+				frequency * echo.pitchFactor,
+				volume * echo.volumeFactor,
+				time,
+				destination,
+			);
+		}
 	}
 
 	setFrequency(frequency: number): void {
-		this.oscillator.frequency.value = frequency;
+		for (const oscillator of this.oscillators) {
+			oscillator.frequency.setValueAtTime(frequency / 2, this.ctx.currentTime);
+		}
 	}
 
 	stop(): void {
-		this.gainNode.gain.setTargetAtTime(0, this.ctx.currentTime + 0.05, 0.01);
-		this.oscillator.stop(this.ctx.currentTime + 0.2);
+		for (const oscillator of this.oscillators) {
+			oscillator.stop(this.ctx.currentTime + 5.1);
+		}
 	}
 }

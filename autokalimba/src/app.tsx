@@ -2,6 +2,7 @@ import { Button } from "./Button";
 import { KalimbaContext, SettingsContext } from "./global";
 import { useContext, useEffect } from "preact/hooks";
 import { Settings } from "./Settings";
+import { chords } from "./chord";
 
 export function App() {
 	const settings = useContext(SettingsContext);
@@ -17,52 +18,57 @@ export function App() {
 		});
 	}, [kalimba]);
 
+	const db = sharps > 1 ? "C♯" : "D♭";
+	const ab = sharps > 2 ? "G♯" : "A♭";
+	const eb = sharps > 3 ? "D♯" : "E♭";
+	const bb = sharps > 4 ? "A♯" : "B♭";
+	const gb = sharps > 0 ? "F♯" : "G♭";
+
+	const horizontalChords = settings.horizontalChords.value;
+
 	return (
 		<div
-			className="flex flex-col bg-pink h-full items-start justify-between p-8 gap-4 select-none"
+			className="flex flex-col bg-pink h-full items-start justify-between gap-4 select-none max-h-svh"
 			style={{
 				filter: `hue-rotate(${settings.hue.value}deg)`,
 			}}
 			onPointerUp={(e) => kalimba.pointerUp(e.pointerId)}
 			onPointerLeave={(e) => kalimba.pointerUp(e.pointerId)}
 		>
-			<Settings />
-			<div className="flex w-full items-end justify-between">
-				<div className="grid grid-cols-3 gap-1">
-					<Button label={sharps > 1 ? "C♯" : "D♭"} targetName="db" />
-					<Button label={"F"} targetName="f" />
-					<Button label={"A"} targetName="a" />
-					<Button label={sharps > 2 ? "G♯" : "A♭"} targetName="ab" />
-					<Button label={"C"} targetName="c" />
-					<Button label={"E"} targetName="e" />
-					<Button label={sharps > 3 ? "D♯" : "E♭"} targetName="eb" />
-					<Button label={"G"} targetName="g" />
-					<Button label={"B"} targetName="b" />
-					<Button label={sharps > 4 ? "A♯" : "B♭"} targetName="bb" />
-					<Button label={"D"} targetName="d" />
-					<Button label={sharps > 0 ? "F♯" : "G♭"} targetName="gb" />
+			{/* <Settings /> */}
+			<div className="flex w-full h-full justify-between">
+				<div className="absolute max-h-[32em] h-full left-4 bottom-2 pt-4 grid grid-cols-3 grid-rows-5 gap-1">
+					<div className="col-span-3" />
+					<Button bass={true} label={db} targetName="db" />
+					<Button bass={true} label={"F"} targetName="f" />
+					<Button bass={true} label={"A"} targetName="a" />
+					<Button bass={true} label={ab} targetName="ab" />
+					<Button bass={true} label={"C"} targetName="c" />
+					<Button bass={true} label={"E"} targetName="e" />
+					<Button bass={true} label={eb} targetName="eb" />
+					<Button bass={true} label={"G"} targetName="g" />
+					<Button bass={true} label={"B"} targetName="b" />
+					<Button bass={true} label={bb} targetName="bb" />
+					<Button bass={true} label={"D"} targetName="d" />
+					<Button bass={true} label={gb} targetName="gb" />
 				</div>
 
-				<div className="grid grid-cols-3 gap-1">
-					<Button label="Δ9" targetName="Δ9" />
-					<Button label="Δ" targetName="Δ" />
-					<Button label="6" targetName="6" />
-
-					<Button label="m9" targetName="m9" />
-					<Button label="m7" targetName="m7" />
-					<Button label="m6" targetName="m6" />
-
-					<Button label="7sus" targetName="7s" />
-					<Button label="7" targetName="7" />
-					<Button label="ø" targetName="ø" />
-
-					<Button label="7♭9" targetName="7b9" />
-					<Button label="7♯5" targetName="7#5" />
-					<Button label="dim" targetName="o" />
-
-					<Button label="13sus" targetName="13s" />
-					<Button label="13" targetName="13" />
-					<Button label="II/" targetName="II/" />
+				<div
+					className={`absolute max-h-[32em] h-full right-4 bottom-2 pt-4 ${
+						horizontalChords
+							? "grid grid-flow-col grid-rows-5 grid-cols-5 gap-1"
+							: "grid grid-cols-3 grid-rows-5 gap-1"
+					}`}
+				>
+					{horizontalChords && <div className="col-span-5 row-span-2" />}
+					{chords.map((chord) => (
+						<Button
+							bass={false}
+							label={chord.name}
+							targetName={chord.name}
+							key={chord.name}
+						/>
+					))}
 				</div>
 			</div>
 		</div>

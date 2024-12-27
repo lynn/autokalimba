@@ -1,37 +1,57 @@
-import { type MutableRef, useContext, useEffect, useRef } from "preact/hooks";
-import { KalimbaContext } from "./global";
+import { useContext } from "preact/hooks";
+import { KalimbaContext, SettingsContext } from "./global";
 
-export function Button({
-	label,
-	targetName,
-}: { label: string; targetName: string }) {
+export interface ButtonProps {
+	label: string;
+	targetName: string;
+	bass: boolean;
+}
+
+export function Button({ label, targetName, bass }: ButtonProps) {
 	const kalimba = useContext(KalimbaContext);
-	const buttonRef: MutableRef<HTMLButtonElement | null> = useRef(null);
-	const active = kalimba.isActive(targetName);
+	const settings = useContext(SettingsContext);
+	const bg = kalimba.isActive(targetName)
+		? "bg-orange-400"
+		: "bg-gradient-to-br from-gray-400 to-gray-500 bg-fixed";
+	const bgSplit = kalimba.isActive(`${targetName}-split`)
+		? "bg-orange-400"
+		: "bg-gradient-to-br from-gray-500 to-gray-600 bg-fixed";
 	return (
-		<button
-			ref={buttonRef}
-			type="button"
-			className={`w-20 h-20 frcc text-4xl rounded-2xl
-                text-white ${active ? "bg-orange-400" : "bg-gray-400"} active:bg-orange-400
-                cursor-pointer select-none touch-none`}
-			onPointerDown={(e) => {
-				kalimba.pointerDown(e.pointerId, targetName);
-			}}
-			onTouchStart={(e) => {
-				// Prevent selecting them with long taps:
-				e.preventDefault();
-			}}
-		>
-			<span
+		<div className="aspect-square flex flex-col justify-center items-stretch text-3xl rounded-lg relative text-white overflow-hidden">
+			<button
+				className={`flex-[2] cursor-pointer select-none touch-none ${bg}`}
+				type="button"
+				onPointerDown={(e) => {
+					kalimba.pointerDown(e.pointerId, targetName);
+				}}
+				onTouchStart={(e) => {
+					// Prevent selecting them with long taps:
+					e.preventDefault();
+				}}
+			/>
+			{bass && settings.splitKeys.value && (
+				<button
+					className={`flex-[1] cursor-pointer select-none touch-none ${bgSplit}`}
+					type="button"
+					onPointerDown={(e) => {
+						kalimba.pointerDown(e.pointerId, `${targetName}-split`);
+					}}
+					onTouchStart={(e) => {
+						// Prevent selecting them with long taps:
+						e.preventDefault();
+					}}
+				/>
+			)}
+			<div
+				className="absolute w-full text-center pointer-events-none"
 				style={
-					label.length >= 4
-						? { transform: "scaleX(0.8)", letterSpacing: "-2px" }
+					label.length >= 1
+						? { transform: "scaleX(1)", letterSpacing: "-2px" }
 						: {}
 				}
 			>
 				{label}
-			</span>
-		</button>
+			</div>
+		</div>
 	);
 }
