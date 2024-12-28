@@ -85,8 +85,14 @@ export interface Patch {
 	echoes?: PatchEcho[];
 }
 
+interface Chime {
+	oscillator: OscillatorNode;
+	gain: GainNode;
+	delay: number;
+}
+
 export class OscillatorNote implements Note {
-	private oscillators: OscillatorNode[] = [];
+	private chimes: Chime[] = [];
 	private wave: PeriodicWave;
 
 	constructor(
@@ -97,10 +103,10 @@ export class OscillatorNote implements Note {
 			new Float32Array([0, 0, 0, 0, 0, 0]),
 			new Float32Array([0, 1, 0.2, 0.2, 0, 0.05]),
 		);
-		this.wave = ctx.createPeriodicWave(
-			new Float32Array([0, 0, 0, 0, 0, 0]),
-			new Float32Array([0, 1, 1 / 2, 1 / 3, 1 / 4, 1 / 5]),
-		);
+		// this.wave = ctx.createPeriodicWave(
+		// 	new Float32Array([0, 0, 0, 0, 0, 0]),
+		// 	new Float32Array([0, 1, 1 / 2, 1 / 3, 1 / 4, 1 / 5]),
+		// );
 	}
 
 	chime(
@@ -112,7 +118,7 @@ export class OscillatorNote implements Note {
 		const now = this.ctx.currentTime;
 		const oscillator = this.ctx.createOscillator();
 		const gain = this.ctx.createGain();
-		this.oscillators.push(oscillator);
+		this.chimes.push({ oscillator, gain, delay });
 
 		oscillator.setPeriodicWave(this.wave);
 		const pan = this.ctx.createStereoPanner();
@@ -123,7 +129,7 @@ export class OscillatorNote implements Note {
 		const decayTime = now + delay + this.patch.attack;
 		oscillator.connect(pan);
 		gain.connect(destination);
-		gain.gain.value = 0;
+		gain.gain.setValueAtTime(0, now);
 		gain.gain.setTargetAtTime(volume, attackTime, this.patch.attack);
 		gain.gain.setTargetAtTime(0, decayTime, this.patch.decay);
 
@@ -151,14 +157,20 @@ export class OscillatorNote implements Note {
 	}
 
 	setFrequency(frequency: number): void {
-		for (const oscillator of this.oscillators) {
-			oscillator.frequency.setValueAtTime(frequency / 2, this.ctx.currentTime);
+		for (const chime of this.chimes) {
+			chime.oscillator.frequency.setValueAtTime(
+				frequency / 2,
+				this.ctx.currentTime,
+			);
 		}
 	}
 
 	stop(): void {
-		for (const oscillator of this.oscillators) {
-			oscillator.stop(this.ctx.currentTime + 5.1);
+		for (const chime of this.chimes) {
+			const time = this.ctx.currentTime + chime.delay;
+			chime.oscillator.stop(time + 0.2);
+			chime.gain.gain.cancelScheduledValues(time);
+			chime.gain.gain.linearRampToValueAtTime(0, time + 0.1);
 		}
 	}
 }

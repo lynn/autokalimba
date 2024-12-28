@@ -9,9 +9,10 @@ import {
 import type { Note, Sample } from "./note";
 import type { Settings } from "./global";
 import { chords } from "./chord";
+import { StenoKeyboard } from "./steno";
 
 interface TargetDescription {
-	type: "bass" | "bass-split" | "chord";
+	type: "bass" | "bass-split" | "split-last" | "chord";
 	semitones: number[];
 }
 
@@ -37,9 +38,16 @@ const chordTargetDescriptions: [string, TargetDescription][] = chords.map(
 	(chord) => [chord.name, { type: "chord", semitones: chord.semitones }],
 );
 
-const targetDescriptions = bassTargetDescriptions.concat(
-	chordTargetDescriptions,
-);
+const scaleDegreeTargetDescriptions: [string, TargetDescription][] = Array(12)
+	.fill(undefined)
+	.map((_, i) => [`s-${i}`, { type: "chord", semitones: [i] }]);
+
+const targetDescriptions: [string, TargetDescription][] = [
+	...bassTargetDescriptions,
+	...chordTargetDescriptions,
+	...scaleDegreeTargetDescriptions,
+	["split-last", { type: "split-last", semitones: [] }],
+];
 
 type TargetName = string;
 
@@ -59,19 +67,21 @@ const qwerty: Record<string, TargetName> = {
 	y: "Δ9",
 	u: "m9",
 	i: "7s",
-	o: "7b9",
+	o: "7♭9",
 	p: "13s",
 	h: "Δ",
 	j: "m7",
 	k: "7",
-	l: "7#5",
+	l: "7♯5",
 	";": "13",
 	n: "6",
 	m: "m6",
 	",": "ø",
-	".": "o",
+	".": "dim",
 	"/": "II/",
 };
+
+type DisplayLayout = "touch" | "keyboard" | "steno";
 
 /**
  * The autokalimba.
@@ -94,7 +104,12 @@ export class Kalimba {
 	/**
 	 * A map from key names to target names, e.g. `"y": "Δ9"`
 	 */
-	private keyboardLayout: Record<string, TargetName> = qwerty;
+	readonly keyboardLayout: Record<string, TargetName> = qwerty;
+
+	/**
+	 * Which layout to use for displaying the buttons.
+	 */
+	readonly displayLayout: Signal<DisplayLayout> = signal("touch");
 
 	/**
 	 * Map from target names to target state.
@@ -112,11 +127,11 @@ export class Kalimba {
 	private mix: AudioNode;
 
 	private instrument: Instrument = new OscillatorInstrument({
-		attack: 0.1,
-		decay: 0.6,
+		attack: 0.2,
+		decay: 1.2,
 		echoes: [
-			// { minDelay: 0.5, maxDelay: 1.0, pitchFactor: 1, volumeFactor: 0.3 },
-			// { minDelay: 1.0, maxDelay: 2.0, pitchFactor: 2, volumeFactor: 0.1 },
+			{ minDelay: 0.5, maxDelay: 1.0, pitchFactor: 1, volumeFactor: 0.3 },
+			{ minDelay: 1.0, maxDelay: 2.0, pitchFactor: 2, volumeFactor: 0.1 },
 		],
 	});
 
@@ -129,6 +144,8 @@ export class Kalimba {
 	 * Semitone offsets (from `bassSemitones`) for the last chord key played.
 	 */
 	private chordSemitones: number[] = [];
+
+	readonly stenoKeyboard: StenoKeyboard;
 
 	constructor(
 		private ctx: AudioContext,
@@ -145,7 +162,12 @@ export class Kalimba {
 		});
 		this.mix.connect(compressor);
 		compressor.connect(ctx.destination);
-		this.loadInstrument(instruments.Rhodes);
+		// this.loadInstrument(instruments.Rhodes);
+
+		this.stenoKeyboard = new StenoKeyboard(
+			this.pointerDown.bind(this),
+			this.pointerUp.bind(this),
+		);
 	}
 
 	/**
@@ -177,12 +199,11 @@ export class Kalimba {
 
 	private noteDelay(baseDelay: number): number {
 		const strumStyle = this.settings.strumStyle.value;
-		const strumDelay = this.settings.strumDelay.value;
-
 		if (strumStyle === undefined) {
 			return 0;
 		}
 
+		const strumDelay = this.settings.strumDelay.value;
 		if (strumStyle === "random") {
 			return strumDelay * baseDelay * Math.random();
 		}
@@ -268,14 +289,17 @@ export class Kalimba {
 	private startTarget(targetName: string): boolean {
 		const target = this.targets.get(targetName);
 		if (!target || target.active.value) {
+			console.warn("Unknown target:", targetName);
 			return false;
 		}
 
 		const { type, semitones } = target.description;
 		const notes =
-			type === "bass" || type === "bass-split"
-				? [this.playBassNote(semitones[0], type)]
-				: this.playChord(semitones);
+			type === "split-last"
+				? [this.playBassNote(this.bassSemitones, "bass-split")]
+				: type === "bass" || type === "bass-split"
+					? [this.playBassNote(semitones[0], type)]
+					: this.playChord(semitones);
 		target.active.value = true;
 		target.notes = notes;
 		return true;
@@ -306,8 +330,13 @@ export class Kalimba {
 	/**
 	 * Called when a pointer hits a target on the autokalimba.
 	 */
-	pointerDown(pointerId: number, targetName: string) {
+	pointerDown(
+		pointerId: number,
+		targetName: string,
+		displayLayout: DisplayLayout = "touch",
+	) {
 		if (this.startTarget(targetName)) {
+			this.displayLayout.value = displayLayout;
 			this.pointers.set(pointerId, targetName);
 		}
 	}
@@ -329,6 +358,7 @@ export class Kalimba {
 	 */
 	keyDown(e: KeyboardEvent) {
 		if (e.repeat) return;
+		if (this.stenoKeyboard.isConnected()) return;
 		if (this.keysHeld.has(e.key)) return;
 
 		const targetName = this.keyboardLayout[e.key];
@@ -336,6 +366,7 @@ export class Kalimba {
 		if (targetName) {
 			e.preventDefault();
 			if (this.startTarget(targetName)) {
+				this.displayLayout.value = "keyboard";
 				this.keysHeld.add(e.key);
 			}
 		}

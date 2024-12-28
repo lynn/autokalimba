@@ -7,7 +7,6 @@ export type StrumStyle = undefined | "random" | "up" | "down" | "timed";
 export const settings = {
 	hue: signal(0),
 	sharps: signal(0),
-	horizontalChords: signal(false),
 	splitKeys: signal(true),
 	/**
 	 * Maximum delay for strummed notes, in seconds.

@@ -81,6 +81,6 @@ export class SampleInstrument implements Instrument {
 	remapFrequency(frequency: number): number {
 		if (frequency < this.description.lo) return 2 * frequency;
 		if (frequency > this.description.hi) return 0.5 * frequency;
-		return frequency * (0.02 * (Math.random() - 0.5) + 1);
+		return frequency * (0.012 * (Math.random() - 0.5) + 1);
 	}
 }
