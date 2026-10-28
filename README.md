@@ -1,6 +1,8 @@
 # Autokalimba
 A chordal musical instrument for your thumbs! [Play it here on a phone.](http://foldr.moe/harp/)
 
+There's also a work-in-progress rewrite with a configurable synthesizer at [foldr.moe/harp/beta](http://foldr.moe/harp/beta/). Its source is in [`autokalimba/`](autokalimba/): run `pnpm install && pnpm build` there to rebuild `beta/`.
+
 Or listen here: ✨ https://twitter.com/search?q=%23autokalimba&f=video ✨
 
 (I will be very happy if you tweet your own performances and tag them `#autokalimba`!!)

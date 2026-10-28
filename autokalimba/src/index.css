@@ -1,0 +1,35 @@
+@import "https://cdnjs.cloudflare.com/ajax/libs/Iosevka/6.0.0/iosevka-aile/iosevka-aile.min.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+	h1 {
+		@apply text-2xl;
+	}
+	h2 {
+		@apply text-xl;
+	}
+	.frcc {
+		@apply flex flex-row justify-center items-center
+	}
+}
+
+:root {
+	font-family: "Fira Mono", system-ui, Avenir, Helvetica, Arial, sans-serif;
+	line-height: 1.5;
+	font-weight: 400;
+	color-scheme: light;
+	font-synthesis: none;
+	text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+body {
+	touch-action: pan-x pan-y pinch-zoom;
+}
+
+* {
+	-webkit-tap-highlight-color: none;
+}
