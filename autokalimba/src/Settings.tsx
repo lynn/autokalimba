@@ -113,16 +113,28 @@ export function Settings() {
 	const synth = settings.synth;
 
 	return (
-		<div className="relative z-10 p-2">
+		<>
 			<button
-				class="cursor-pointer border-black border px-4 py-1 rounded-full"
+				class="cursor-pointer border-black border w-10 h-10 shrink-0 rounded-full text-xl leading-none"
 				type="button"
-				onClick={() => setOpen(!open)}
+				aria-label="Settings"
+				title="Settings"
+				onClick={() => setOpen(true)}
 			>
-				{open ? "Close settings" : "Settings"}
+				⚙
 			</button>
 			{open && (
-				<div className="absolute left-2 top-12 flex flex-col gap-2 p-3 rounded-lg bg-white/80 backdrop-blur max-h-[calc(100svh-4rem)] overflow-y-auto shadow-lg">
+				<div
+					className="fixed z-10 inset-2 sm:right-auto flex flex-col gap-2 p-3 rounded-lg bg-white/90 backdrop-blur overflow-y-auto overscroll-contain shadow-lg touch-pan-y"
+					onPointerDown={(e) => e.stopPropagation()}
+				>
+					<button
+						class="cursor-pointer border-black border px-4 py-1 rounded-full self-start"
+						type="button"
+						onClick={() => setOpen(false)}
+					>
+						Close settings
+					</button>
 					<Slider label="Hue" value={settings.hue} min={-180} max={180} step={1} />
 					<Slider label="Sharps" value={settings.sharps} min={0} max={5} step={1} />
 					<label className="flex flex-row items-center gap-2">
@@ -178,6 +190,6 @@ export function Settings() {
 					({kalimba.stenoKeyboard.isConnected() ? "Connected" : "Disconnected"})
 				</div>
 			)}
-		</div>
+		</>
 	);
 }

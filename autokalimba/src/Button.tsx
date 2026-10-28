@@ -28,8 +28,7 @@ export function Button({ label, targetName, bass }: ButtonProps) {
 		: "bg-gradient-to-br from-gray-500 to-gray-600 bg-fixed";
 	return (
 		<div
-			className="flex flex-col justify-center items-stretch text-4xl rounded-lg relative text-white overflow-hidden"
-			style={{ width: "6rem", height: "6rem" }}
+			className="flex flex-col justify-center items-stretch rounded-lg relative text-white overflow-hidden w-full h-full min-w-0 min-h-0 [container-type:size]"
 		>
 			<button
 				className={`flex-[2] cursor-pointer select-none touch-none ${bg}`}
@@ -56,13 +55,13 @@ export function Button({ label, targetName, bass }: ButtonProps) {
 				/>
 			)}
 			{kalimba.displayLayout.value === "keyboard" && (
-				<div className="absolute top-2 left-2 text-black/50 text-base">
+				<div className="absolute top-[6cqmin] left-[8cqmin] text-black/50 text-[16cqmin] leading-none">
 					{invertedLayout[targetName]}
 				</div>
 			)}
 
 			<div
-				className="absolute w-full text-center pointer-events-none"
+				className="absolute w-full text-center pointer-events-none text-[38cqmin] leading-none"
 				style={
 					label.length >= 1
 						? { transform: "scaleX(1)", letterSpacing: "-2px" }
