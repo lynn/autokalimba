@@ -119,6 +119,10 @@ export interface Patch {
 		 * keep it constant.
 		 */
 		decay: number;
+		/**
+		 * The modulator's waveform, if it isn't a sine (for feedback).
+		 */
+		modulatorWave?: PeriodicWave;
 	};
 	vibrato: {
 		/**
@@ -203,10 +207,10 @@ export class OscillatorNote implements Note {
 		} else {
 			oscillator.type = patch.wave;
 		}
-		oscillator.frequency.value = frequency / 2;
+		oscillator.frequency.value = frequency;
 
 		const vibrato = this.startVibrato();
-		if (patch.fm) this.startModulator(frequency / 2, vibrato);
+		if (patch.fm) this.startModulator(frequency, vibrato);
 
 		filter.type = patch.filter.type;
 		filter.frequency.value = patch.filter.cutoff;
@@ -262,9 +266,10 @@ export class OscillatorNote implements Note {
 	private startModulator(frequency: number, vibrato: AudioNode | undefined) {
 		const { ctx, patch } = this;
 		if (!patch.fm) return;
-		const { ratio, index, decay } = patch.fm;
+		const { ratio, index, decay, modulatorWave } = patch.fm;
 
 		this.modulator = ctx.createOscillator();
+		if (modulatorWave) this.modulator.setPeriodicWave(modulatorWave);
 		this.modulator.frequency.value = frequency * ratio;
 		// Keep the modulator in tune with the carrier as it wobbles.
 		vibrato?.connect(this.modulator.detune);
@@ -282,10 +287,10 @@ export class OscillatorNote implements Note {
 
 	setFrequency(frequency: number): void {
 		const now = this.ctx.currentTime;
-		this.oscillator.frequency.setValueAtTime(frequency / 2, now);
+		this.oscillator.frequency.setValueAtTime(frequency, now);
 		if (this.modulator && this.patch.fm) {
 			this.modulator.frequency.setValueAtTime(
-				(frequency / 2) * this.patch.fm.ratio,
+				frequency * this.patch.fm.ratio,
 				now,
 			);
 		}

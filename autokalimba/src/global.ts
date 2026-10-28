@@ -3,7 +3,7 @@ import { Kalimba } from "./kalimba";
 import type { InstrumentName } from "./instrument";
 import { createContext } from "preact";
 
-export type StrumStyle = undefined | "random" | "up" | "down" | "timed";
+export type StrumStyle = "random" | "up" | "down" | "timed";
 
 export type Waveform =
 	| "chime"
@@ -34,6 +34,11 @@ export const synthSettings = {
 	 * (`fmDecayMax`) means it never does.
 	 */
 	fmDecay: signal(1),
+	/**
+	 * How much the FM modulator modulates itself, from 0 (a sine) towards 1
+	 * (nearly a sawtooth).
+	 */
+	fmFeedback: signal(0),
 	/**
 	 * Time before the vibrato starts, in seconds.
 	 */
@@ -87,15 +92,16 @@ export const settings = {
 	/**
 	 * Maximum delay for strummed notes, in seconds.
 	 */
-	strumDelay: signal(0.1),
+	strumDelay: signal(0.04),
 	/**
 	 * Determines how chords are strummed.
 	 */
 	strumStyle: signal<StrumStyle>("random"),
 	/**
-	 * Lowest note reachable by the bass keys, in semitones from A.
+	 * Lowest note reachable by the bass keys, in semitones from A110. Chords
+	 * are voiced on top of the bass note, so this also moves their voicing.
 	 */
-	lowestBassNote: signal(0),
+	lowestBassNote: signal(-3),
 	/**
 	 * Each chord note is detuned by a random amount up to this many cents,
 	 * for a less perfect, chorus-like sound.
@@ -107,8 +113,13 @@ export const settings = {
 	 */
 	specialChord: signal("II/"),
 	/**
-	 * Randomly re-voice each chord by up to this many semitones either way:
-	 * moving its lowest notes up an octave, or its highest notes down one.
+	 * Bass boost, from 0 (off) to 1, for small speakers.
+	 */
+	phat: signal(0),
+	/**
+	 * Voice each chord as if the bass range slider (`lowestBassNote`) were
+	 * moved by a random number of semitones, up to this many either way. The
+	 * bass notes themselves don't move.
 	 */
 	voicingSpread: signal(0),
 	synth: synthSettings,

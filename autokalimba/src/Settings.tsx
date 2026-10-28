@@ -3,6 +3,7 @@ import type { ComponentChildren } from "preact";
 import { useContext, useState } from "preact/hooks";
 import {
 	type FilterType,
+	type StrumStyle,
 	fmDecayMax,
 	KalimbaContext,
 	SettingsContext,
@@ -107,6 +108,7 @@ const waveforms: readonly Waveform[] = [
 	"sawtooth",
 	"fm",
 ];
+const strumStyles: readonly StrumStyle[] = ["random", "up", "down", "timed"];
 const filterTypes: readonly FilterType[] = ["lowpass", "highpass", "bandpass"];
 
 export function Settings() {
@@ -166,6 +168,9 @@ export function Settings() {
 						</select>
 						Special chord
 					</label>
+					<Slider label="Phat (bass boost)" value={settings.phat} min={0} max={1} step={0.01} format={(x) => (x ? percent(x) : "off")} />
+					<Slider label="Strum delay" value={settings.strumDelay} min={0} max={0.2} step={0.01} format={seconds} />
+					<Choice label="Strum style" value={settings.strumStyle} options={strumStyles} />
 					<Slider label="Voicing spread" value={settings.voicingSpread} min={0} max={6} step={1} format={(x) => (x ? `±${x}` : "off")} />
 					<Slider label="Detune" value={settings.detune} min={0} max={30} step={1} format={(x) => (x ? `±${x}¢` : "off")} />
 					<Choice
@@ -181,6 +186,7 @@ export function Settings() {
 									<>
 										<Slider label="FM ratio" value={synth.fmRatio} min={0.5} max={8} step={0.5} format={(x) => `${x}×`} />
 										<Slider label="FM index" value={synth.fmIndex} min={0} max={10} step={0.1} format={(x) => x.toFixed(1)} />
+										<Slider label="FM feedback" value={synth.fmFeedback} min={0} max={0.99} step={0.01} format={percent} />
 										<Slider label="FM decay" value={synth.fmDecay} min={0.05} max={fmDecayMax} step={0.05} format={(x) => (x >= fmDecayMax ? "∞" : seconds(x))} />
 									</>
 								)}
