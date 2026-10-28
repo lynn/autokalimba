@@ -149,6 +149,7 @@ export function Settings() {
 						/>
 						Split keys
 					</label>
+					<Slider label="Detune" value={settings.detune} min={0} max={30} step={1} format={(x) => (x ? `±${x}¢` : "off")} />
 					<Choice
 						label="Instrument"
 						value={settings.instrument}

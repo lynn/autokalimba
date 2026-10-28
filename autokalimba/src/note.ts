@@ -246,6 +246,7 @@ export class OscillatorNote implements Note {
 		this.lfo = ctx.createOscillator();
 		this.lfo.frequency.value = speed;
 		const depth = ctx.createGain();
+		depth.gain.value = 0;
 		const fadeIn = this.startTime + delay;
 		depth.gain.setValueAtTime(0, fadeIn);
 		depth.gain.linearRampToValueAtTime(width, fadeIn + 0.25);

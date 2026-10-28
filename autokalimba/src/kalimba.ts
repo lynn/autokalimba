@@ -24,6 +24,10 @@ interface Target {
 	 * Notes currently playing from this target.
 	 */
 	notes: Note[];
+	/**
+	 * Random detune for each note, in cents (see `Settings.detune`).
+	 */
+	detunes: number[];
 }
 
 const noteNames: string[] = "a bb b c db d eb e f gb g ab".split(" ");
@@ -125,7 +129,7 @@ export class Kalimba {
 	private targets: Map<TargetName, Target> = new Map(
 		targetDescriptions.map(([name, description]) => [
 			name,
-			{ description, active: signal(false), notes: [] },
+			{ description, active: signal(false), notes: [], detunes: [] },
 		]),
 	);
 
@@ -244,16 +248,25 @@ export class Kalimba {
 		return strumDelay * factor * slightlyRandom;
 	}
 
-	private chordFrequency(semitones: number): number {
+	private chordFrequency(semitones: number, detune: number): number {
 		const frequency = 220 * 2 ** ((this.bassSemitones + semitones) / 12);
-		return this.instrument.remapFrequency(frequency);
+		return this.instrument.remapFrequency(frequency) * 2 ** (detune / 1200);
+	}
+
+	/**
+	 * A random detune in cents, within the spread set in the settings.
+	 */
+	private randomDetune(): number {
+		return (Math.random() - 0.5) * 2 * this.settings.detune.value;
 	}
 
 	private adjustChordNotes() {
 		for (const target of this.targets.values()) {
 			if (target.description.type === "chord" && target.notes.length) {
 				target.description.semitones.map((semitones, i) => {
-					target.notes[i].setFrequency(this.chordFrequency(semitones));
+					target.notes[i].setFrequency(
+						this.chordFrequency(semitones, target.detunes[i]),
+					);
 				});
 			}
 		}
@@ -298,18 +311,22 @@ export class Kalimba {
 		return note;
 	}
 
-	private playChordNote(semitones: number, delay: number): Note {
-		const frequency = this.chordFrequency(semitones);
+	private playChordNote(
+		semitones: number,
+		detune: number,
+		delay: number,
+	): Note {
+		const frequency = this.chordFrequency(semitones, detune);
 		const note = this.instrument.makeNote(this.ctx, frequency, false);
 		note.start(frequency, 0.2, delay, this.output());
 		return note;
 	}
 
-	private playChord(semitones: number[]): Note[] {
+	private playChord(semitones: number[], detunes: number[]): Note[] {
 		this.chordSemitones = semitones;
 		this.adjustBassNotes();
 		return semitones.map((st, i) =>
-			this.playChordNote(st, this.noteDelay(i / semitones.length)),
+			this.playChordNote(st, detunes[i], this.noteDelay(i / semitones.length)),
 		);
 	}
 
@@ -328,12 +345,13 @@ export class Kalimba {
 		}
 
 		const { type, semitones } = target.description;
+		target.detunes = semitones.map(() => this.randomDetune());
 		const notes =
 			type === "split-last"
 				? [this.playBassNote(this.bassSemitones, "bass-split")]
 				: type === "bass" || type === "bass-split"
 					? [this.playBassNote(semitones[0], type)]
-					: this.playChord(semitones);
+					: this.playChord(semitones, target.detunes);
 		target.active.value = true;
 		target.notes = notes;
 		return true;

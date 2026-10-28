@@ -19,11 +19,11 @@ function PianoKey({ label, targetName, black }: PianoKeyProps) {
 			? "bg-blue-400"
 			: black
 				? split
-					? "bg-gray-700"
-					: "bg-gray-900"
+					? "bg-gray-600"
+					: "bg-gray-800"
 				: split
-					? "bg-gray-200"
-					: "bg-white";
+					? "bg-gray-300"
+					: "bg-gray-100";
 	const part = (name: string, split: boolean) => (
 		<button
 			className={`${split ? "flex-[1]" : "flex-[2]"} cursor-pointer select-none touch-none ${color(name, split)}`}
@@ -39,13 +39,13 @@ function PianoKey({ label, targetName, black }: PianoKeyProps) {
 	);
 	return (
 		<div
-			className={`flex flex-col items-stretch relative overflow-hidden w-full h-full rounded-b-md [container-type:inline-size] ${
-				black ? "text-white shadow-md" : "text-black border border-gray-400"
+			className={`flex flex-col items-stretch relative overflow-hidden w-full h-full rounded-md shadow-[0_2px_0_rgb(0_0_0/0.35)] [container-type:size] ${
+				black ? "text-white" : "text-black"
 			}`}
 		>
 			{part(targetName, false)}
 			{settings.splitKeys.value && part(`${targetName}-split`, true)}
-			<div className="absolute bottom-[0.3em] w-full text-center pointer-events-none text-[45cqw] leading-none">
+			<div className="absolute top-[22%] w-full text-center pointer-events-none text-[45cqmin] leading-none">
 				{label}
 			</div>
 		</div>
@@ -64,7 +64,9 @@ interface PianoProps {
 }
 
 /**
- * Bass keys laid out as a piano keyboard from C to C.
+ * Bass keys laid out as a piano keyboard from C to C, in the style of a
+ * TB-303: two rows of equal buttons, with the black keys on the top row
+ * offset by half a key.
  */
 export function Piano({ db, eb, gb, ab, bb }: PianoProps) {
 	const white: [string, string][] = [
@@ -85,27 +87,31 @@ export function Piano({ db, eb, gb, ab, bb }: PianoProps) {
 		[4, ab, "ab"],
 		[5, bb, "bb"],
 	];
-	const whiteWidth = 100 / white.length;
-	const blackWidth = whiteWidth * 0.62;
+	// Each key spans two of the grid's half-key columns.
 	return (
-		<div className="relative w-full h-full">
-			<div className="flex flex-row w-full h-full">
-				{white.map(([label, targetName]) => (
-					<div key={targetName} className="flex-1 min-w-0 h-full">
-						<PianoKey label={label} targetName={targetName} black={false} />
-					</div>
-				))}
-			</div>
+		<div
+			className="grid w-full h-full gap-y-1"
+			style={{
+				gridTemplateColumns: `repeat(${white.length * 2}, 1fr)`,
+				gridTemplateRows: "repeat(2, 1fr)",
+			}}
+		>
 			{black.map(([after, label, targetName]) => (
 				<div
 					key={targetName}
-					className="absolute top-0 h-[60%]"
-					style={{
-						left: `${(after + 1) * whiteWidth - blackWidth / 2}%`,
-						width: `${blackWidth}%`,
-					}}
+					className="p-[3px] min-w-0 min-h-0"
+					style={{ gridRow: 1, gridColumn: `${after * 2 + 2} / span 2` }}
 				>
 					<PianoKey label={label} targetName={targetName} black={true} />
+				</div>
+			))}
+			{white.map(([label, targetName], i) => (
+				<div
+					key={targetName}
+					className="p-[3px] min-w-0 min-h-0"
+					style={{ gridRow: 2, gridColumn: `${i * 2 + 1} / span 2` }}
+				>
+					<PianoKey label={label} targetName={targetName} black={false} />
 				</div>
 			))}
 		</div>

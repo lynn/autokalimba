@@ -96,6 +96,11 @@ export const settings = {
 	 * Lowest note reachable by the bass keys, in semitones from A.
 	 */
 	lowestBassNote: signal(0),
+	/**
+	 * Each chord note is detuned by a random amount up to this many cents,
+	 * for a less perfect, chorus-like sound.
+	 */
+	detune: signal(0),
 	synth: synthSettings,
 };
 

@@ -188,7 +188,7 @@ export function App() {
 				<div className="flex-[2] min-h-0 flex items-end pr-[12%] [container-type:size]">
 					<div
 						className="w-full"
-						style={{ height: "min(100cqh, 100cqw * 0.75)" }}
+						style={{ height: "min(100cqh, 100cqw * 0.55)" }}
 					>
 						<Piano db={db} eb={eb} gb={gb} ab={ab} bb={bb} />
 					</div>

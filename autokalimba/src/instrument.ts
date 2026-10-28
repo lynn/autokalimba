@@ -176,7 +176,7 @@ export class OscillatorInstrument implements Instrument {
 	remapFrequency(frequency: number): number {
 		let f = frequency;
 		if (f < 300) f *= 2;
-		return f * (0.02 * (Math.random() - 0.5) + 1);
+		return f;
 	}
 
 	makeNote(ctx: AudioContext, _frequency: number, _isBass: boolean): Note {
@@ -213,6 +213,6 @@ export class SampleInstrument implements Instrument {
 	remapFrequency(frequency: number): number {
 		if (frequency < this.description.lo) return 2 * frequency;
 		if (frequency > this.description.hi) return 0.5 * frequency;
-		return frequency * (0.012 * (Math.random() - 0.5) + 1);
+		return frequency;
 	}
 }
