@@ -1,6 +1,7 @@
-import { type Signal, signal } from "@preact/signals";
+import { effect, type Signal, signal } from "@preact/signals";
 import {
 	type Instrument,
+	type InstrumentName,
 	instruments,
 	OscillatorInstrument,
 	SampleInstrument,
@@ -130,18 +131,21 @@ export class Kalimba {
 	private synth: Instrument;
 
 	/**
-	 * The sampled Rhodes, once its samples have loaded.
+	 * Sampled instruments, once their samples have loaded.
 	 */
-	private rhodes: Instrument | undefined;
+	private sampled: Map<InstrumentName, Instrument> = new Map();
 
 	/**
-	 * The instrument chosen in the settings. (Until the Rhodes samples have
+	 * Sampled instruments whose samples are loading or loaded.
+	 */
+	private requested: Set<InstrumentName> = new Set();
+
+	/**
+	 * The instrument chosen in the settings. (Until a sampled instrument has
 	 * loaded, the synth plays instead.)
 	 */
 	private get instrument(): Instrument {
-		return this.settings.instrument.value === "Rhodes" && this.rhodes
-			? this.rhodes
-			: this.synth;
+		return this.sampled.get(this.settings.instrument.value) ?? this.synth;
 	}
 
 	/**
@@ -172,8 +176,19 @@ export class Kalimba {
 		this.mix.connect(compressor);
 		compressor.connect(ctx.destination);
 		this.synth = new OscillatorInstrument(ctx, settings.synth, this.mix);
-		this.loadInstrument(instruments.Rhodes).then((rhodes) => {
-			this.rhodes = rhodes;
+		// Load samples for the chosen instrument whenever the choice changes.
+		effect(() => {
+			const name = this.settings.instrument.value;
+			if (name === "Synth" || !(name in instruments)) return;
+			if (this.requested.has(name)) return;
+			this.requested.add(name);
+			this.loadInstrument(instruments[name]).then(
+				(instrument) => this.sampled.set(name, instrument),
+				(error) => {
+					console.error(`Couldn't load ${name}:`, error);
+					this.requested.delete(name);
+				},
+			);
 		});
 
 		this.stenoKeyboard = new StenoKeyboard(

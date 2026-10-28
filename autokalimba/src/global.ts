@@ -1,10 +1,9 @@
 import { effect, signal, type Signal } from "@preact/signals";
 import { Kalimba } from "./kalimba";
+import type { InstrumentName } from "./instrument";
 import { createContext } from "preact";
 
 export type StrumStyle = undefined | "random" | "up" | "down" | "timed";
-
-export type InstrumentName = "Rhodes" | "Synth";
 
 export type Waveform = "chime" | "sine" | "triangle" | "square" | "sawtooth";
 

@@ -3,11 +3,11 @@ import type { ComponentChildren } from "preact";
 import { useContext, useState } from "preact/hooks";
 import {
 	type FilterType,
-	type InstrumentName,
 	KalimbaContext,
 	SettingsContext,
 	type Waveform,
 } from "./global";
+import { instrumentNames } from "./instrument";
 
 interface SliderProps {
 	label: string;
@@ -97,7 +97,6 @@ const hertz = (x: number) =>
 	x >= 1000 ? `${(x / 1000).toFixed(1)}kHz` : `${Math.round(x)}Hz`;
 const octaves = (x: number) => `${x > 0 ? "+" : ""}${x.toFixed(1)}oct`;
 
-const instrumentNames: readonly InstrumentName[] = ["Synth", "Rhodes"];
 const waveforms: readonly Waveform[] = [
 	"chime",
 	"sine",

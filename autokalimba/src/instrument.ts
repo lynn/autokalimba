@@ -9,15 +9,11 @@ export interface SampleInstrumentDescription {
 	samples: { name: string; frequency: number; only?: "bass" | "chords" }[];
 }
 
-export const instruments: Record<string, SampleInstrumentDescription> = {
-	// Piano: {
-	// 	lo: 250,
-	// 	hi: 650,
-	// 	samples: [
-	// 		{ name: "piano-cs3.wav", frequency: 138.59 },
-	// 		{ name: "piano-f4.wav", frequency: 698.46 / 2 },
-	// 	],
-	// },
+/**
+ * Sampled instruments. "Classic Rhodes", "Guitar" and "Piano" are ported from
+ * the original autokalimba.
+ */
+export const instruments = {
 	Rhodes: {
 		lo: 250 * 2,
 		hi: 650 * 2,
@@ -33,7 +29,35 @@ export const instruments: Record<string, SampleInstrumentDescription> = {
 			{ name: "n-d5.wav", frequency: 587.3, only: "chords" },
 		],
 	},
-};
+	"Classic Rhodes": {
+		lo: 250,
+		hi: 650,
+		samples: [
+			{ name: "rhodes-low.wav", frequency: 110, only: "bass" },
+			{ name: "rhodes-high.wav", frequency: 329, only: "chords" },
+		],
+	},
+	Guitar: {
+		lo: 250,
+		hi: 650,
+		samples: [{ name: "guitar.wav", frequency: 110 }],
+	},
+	Piano: {
+		lo: 250,
+		hi: 650,
+		samples: [
+			{ name: "piano-cs3.wav", frequency: 138.59 },
+			{ name: "piano-f4.wav", frequency: 698.46 / 2 },
+		],
+	},
+} satisfies Record<string, SampleInstrumentDescription>;
+
+export type InstrumentName = "Synth" | keyof typeof instruments;
+
+export const instrumentNames = [
+	"Synth",
+	...Object.keys(instruments),
+] as InstrumentName[];
 
 export interface Instrument {
 	remapFrequency(frequency: number): number;
