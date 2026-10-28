@@ -1,7 +1,7 @@
 import { effect } from "@preact/signals";
 import { SampleNote, OscillatorNote } from "./note";
 import type { Envelope, Note, Sample, Patch } from "./note";
-import type { SynthSettings } from "./global";
+import { fmDecayMax, type SynthSettings } from "./global";
 
 export interface SampleInstrumentDescription {
 	lo: number;
@@ -130,7 +130,28 @@ export class OscillatorInstrument implements Instrument {
 		});
 		const waveform = s.waveform.value;
 		return {
-			wave: waveform === "chime" ? this.chimeWave : waveform,
+			wave:
+				waveform === "chime"
+					? this.chimeWave
+					: waveform === "fm"
+						? "sine"
+						: waveform,
+			fm:
+				waveform === "fm"
+					? {
+							ratio: s.fmRatio.value,
+							index: s.fmIndex.value,
+							decay:
+								s.fmDecay.value >= fmDecayMax
+									? Number.POSITIVE_INFINITY
+									: Math.max(s.fmDecay.value, minTime),
+						}
+					: undefined,
+			vibrato: {
+				delay: s.vibratoDelay.value,
+				speed: s.vibratoSpeed.value,
+				width: s.vibratoWidth.value,
+			},
 			amp: envelope(
 				s.attack.value,
 				s.decay.value,

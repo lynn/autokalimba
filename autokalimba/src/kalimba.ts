@@ -35,6 +35,12 @@ const bassTargetDescriptions: [string, TargetDescription][] = noteNames.flatMap(
 	],
 );
 
+// The portrait layout's piano keyboard has a second C at the top.
+bassTargetDescriptions.push(
+	["c-high", { type: "bass", semitones: [3] }],
+	["c-high-split", { type: "bass-split", semitones: [3] }],
+);
+
 const chordTargetDescriptions: [string, TargetDescription][] = chords.map(
 	(chord) => [chord.name, { type: "chord", semitones: chord.semitones }],
 );

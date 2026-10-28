@@ -3,6 +3,7 @@ import type { ComponentChildren } from "preact";
 import { useContext, useState } from "preact/hooks";
 import {
 	type FilterType,
+	fmDecayMax,
 	KalimbaContext,
 	SettingsContext,
 	type Waveform,
@@ -103,6 +104,7 @@ const waveforms: readonly Waveform[] = [
 	"triangle",
 	"square",
 	"sawtooth",
+	"fm",
 ];
 const filterTypes: readonly FilterType[] = ["lowpass", "highpass", "bandpass"];
 
@@ -156,6 +158,18 @@ export function Settings() {
 						<>
 							<Section title="Oscillator">
 								<Choice label="Waveform" value={synth.waveform} options={waveforms} />
+								{synth.waveform.value === "fm" && (
+									<>
+										<Slider label="FM ratio" value={synth.fmRatio} min={0.5} max={8} step={0.5} format={(x) => `${x}×`} />
+										<Slider label="FM index" value={synth.fmIndex} min={0} max={10} step={0.1} format={(x) => x.toFixed(1)} />
+										<Slider label="FM decay" value={synth.fmDecay} min={0.05} max={fmDecayMax} step={0.05} format={(x) => (x >= fmDecayMax ? "∞" : seconds(x))} />
+									</>
+								)}
+							</Section>
+							<Section title="Vibrato">
+								<Slider label="Delay" value={synth.vibratoDelay} min={0} max={2} step={0.01} format={seconds} />
+								<Slider label="Speed" value={synth.vibratoSpeed} min={0.5} max={12} step={0.1} format={(x) => `${x.toFixed(1)}Hz`} />
+								<Slider label="Width" value={synth.vibratoWidth} min={0} max={100} step={1} format={(x) => (x ? `${x}¢` : "off")} />
 							</Section>
 							<Section title="Amp envelope">
 								<Slider label="Attack" value={synth.attack} min={0} max={2} step={0.01} format={seconds} />

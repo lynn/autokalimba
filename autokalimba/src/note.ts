@@ -100,6 +100,40 @@ export interface Patch {
 		envAmount: number;
 		envelope: Envelope;
 	};
+	/**
+	 * If set, frequency-modulate the oscillator (which should be a sine) with a
+	 * second sine oscillator.
+	 */
+	fm?: {
+		/**
+		 * Modulator frequency as a multiple of the note's frequency.
+		 */
+		ratio: number;
+		/**
+		 * Modulation index: peak frequency deviation as a multiple of the
+		 * modulator's frequency. Higher is brighter.
+		 */
+		index: number;
+		/**
+		 * How long the index takes to die down, in seconds, or `Infinity` to
+		 * keep it constant.
+		 */
+		decay: number;
+	};
+	vibrato: {
+		/**
+		 * Time from the start of the note until the vibrato starts, in seconds.
+		 */
+		delay: number;
+		/**
+		 * Vibrato frequency, in Hz.
+		 */
+		speed: number;
+		/**
+		 * Vibrato depth, in cents.
+		 */
+		width: number;
+	};
 }
 
 /**
@@ -141,6 +175,9 @@ export class OscillatorNote implements Note {
 	private oscillator: OscillatorNode;
 	private filter: BiquadFilterNode;
 	private gain: GainNode;
+	private modulator: OscillatorNode | undefined;
+	private modulatorGain: GainNode | undefined;
+	private lfo: OscillatorNode | undefined;
 	private startTime = 0;
 
 	constructor(
@@ -168,6 +205,9 @@ export class OscillatorNote implements Note {
 		}
 		oscillator.frequency.value = frequency / 2;
 
+		const vibrato = this.startVibrato();
+		if (patch.fm) this.startModulator(frequency / 2, vibrato);
+
 		filter.type = patch.filter.type;
 		filter.frequency.value = patch.filter.cutoff;
 		filter.Q.value = patch.filter.resonance;
@@ -193,11 +233,61 @@ export class OscillatorNote implements Note {
 		oscillator.start(this.startTime);
 	}
 
+	/**
+	 * Connect an LFO to the oscillator's detune, fading in after the vibrato
+	 * delay. Return its output (in cents), or `undefined` if there's no
+	 * vibrato.
+	 */
+	private startVibrato(): AudioNode | undefined {
+		const { ctx, patch } = this;
+		const { delay, speed, width } = patch.vibrato;
+		if (width <= 0 || speed <= 0) return undefined;
+
+		this.lfo = ctx.createOscillator();
+		this.lfo.frequency.value = speed;
+		const depth = ctx.createGain();
+		const fadeIn = this.startTime + delay;
+		depth.gain.setValueAtTime(0, fadeIn);
+		depth.gain.linearRampToValueAtTime(width, fadeIn + 0.25);
+		this.lfo.connect(depth);
+		depth.connect(this.oscillator.detune);
+		this.lfo.start(this.startTime);
+		return depth;
+	}
+
+	/**
+	 * Connect a sine modulator to the oscillator's frequency, for FM.
+	 */
+	private startModulator(frequency: number, vibrato: AudioNode | undefined) {
+		const { ctx, patch } = this;
+		if (!patch.fm) return;
+		const { ratio, index, decay } = patch.fm;
+
+		this.modulator = ctx.createOscillator();
+		this.modulator.frequency.value = frequency * ratio;
+		// Keep the modulator in tune with the carrier as it wobbles.
+		vibrato?.connect(this.modulator.detune);
+
+		this.modulatorGain = ctx.createGain();
+		const deviation = index * frequency * ratio;
+		this.modulatorGain.gain.setValueAtTime(deviation, this.startTime);
+		if (Number.isFinite(decay)) {
+			this.modulatorGain.gain.setTargetAtTime(0, this.startTime, decay / 4);
+		}
+		this.modulator.connect(this.modulatorGain);
+		this.modulatorGain.connect(this.oscillator.frequency);
+		this.modulator.start(this.startTime);
+	}
+
 	setFrequency(frequency: number): void {
-		this.oscillator.frequency.setValueAtTime(
-			frequency / 2,
-			this.ctx.currentTime,
-		);
+		const now = this.ctx.currentTime;
+		this.oscillator.frequency.setValueAtTime(frequency / 2, now);
+		if (this.modulator && this.patch.fm) {
+			this.modulator.frequency.setValueAtTime(
+				(frequency / 2) * this.patch.fm.ratio,
+				now,
+			);
+		}
 	}
 
 	stop(): void {
@@ -206,6 +296,9 @@ export class OscillatorNote implements Note {
 		const { amp, filter } = this.patch;
 		envelopeRelease(this.gain.gain, amp, time, 0);
 		envelopeRelease(this.filter.detune, filter.envelope, time, 0);
-		this.oscillator.stop(time + amp.release * 1.5 + 0.05);
+		const end = time + amp.release * 1.5 + 0.05;
+		this.oscillator.stop(end);
+		this.modulator?.stop(end);
+		this.lfo?.stop(end);
 	}
 }

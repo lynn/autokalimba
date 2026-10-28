@@ -5,7 +5,13 @@ import { createContext } from "preact";
 
 export type StrumStyle = undefined | "random" | "up" | "down" | "timed";
 
-export type Waveform = "chime" | "sine" | "triangle" | "square" | "sawtooth";
+export type Waveform =
+	| "chime"
+	| "sine"
+	| "triangle"
+	| "square"
+	| "sawtooth"
+	| "fm";
 
 export type FilterType = "lowpass" | "highpass" | "bandpass";
 
@@ -15,6 +21,31 @@ export type FilterType = "lowpass" | "highpass" | "bandpass";
  */
 export const synthSettings = {
 	waveform: signal<Waveform>("chime"),
+	/**
+	 * FM modulator frequency, as a multiple of the note frequency.
+	 */
+	fmRatio: signal(1),
+	/**
+	 * FM modulation index (brightness).
+	 */
+	fmIndex: signal(2),
+	/**
+	 * How long the FM index takes to die down, in seconds. The maximum value
+	 * (`fmDecayMax`) means it never does.
+	 */
+	fmDecay: signal(1),
+	/**
+	 * Time before the vibrato starts, in seconds.
+	 */
+	vibratoDelay: signal(0.3),
+	/**
+	 * Vibrato rate, in Hz.
+	 */
+	vibratoSpeed: signal(5),
+	/**
+	 * Vibrato depth, in cents. 0 turns vibrato off.
+	 */
+	vibratoWidth: signal(0),
 	attack: signal(0.01),
 	decay: signal(1.2),
 	sustain: signal(0.2),
@@ -45,6 +76,8 @@ export const synthSettings = {
 };
 
 export type SynthSettings = typeof synthSettings;
+
+export const fmDecayMax = 8;
 
 export const settings = {
 	hue: signal(0),
