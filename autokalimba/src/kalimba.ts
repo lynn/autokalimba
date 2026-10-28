@@ -9,7 +9,7 @@ import {
 } from "./instrument";
 import type { Note, Sample } from "./note";
 import type { Settings } from "./global";
-import { chords } from "./chord";
+import { chords, specialChord } from "./chord";
 import { StenoKeyboard } from "./steno";
 
 interface TargetDescription {
@@ -24,6 +24,11 @@ interface Target {
 	 * Notes currently playing from this target.
 	 */
 	notes: Note[];
+	/**
+	 * For chord targets: octave multipliers for each note, from the random
+	 * re-voicing (see `Settings.voicingSpread`).
+	 */
+	octaves: number[];
 	/**
 	 * Random detune for each note, in cents (see `Settings.detune`).
 	 */
@@ -59,6 +64,8 @@ const targetDescriptions: [string, TargetDescription][] = [
 	...chordTargetDescriptions,
 	...scaleDegreeTargetDescriptions,
 	["split-last", { type: "split-last", semitones: [] }],
+	// Its semitones follow `Settings.specialChord`.
+	["special", { type: "chord", semitones: [] }],
 ];
 
 type TargetName = string;
@@ -90,7 +97,7 @@ const qwerty: Record<string, TargetName> = {
 	m: "m6",
 	",": "ø",
 	".": "dim",
-	"/": "II/",
+	"/": "special",
 };
 
 type DisplayLayout = "touch" | "keyboard" | "steno";
@@ -129,7 +136,13 @@ export class Kalimba {
 	private targets: Map<TargetName, Target> = new Map(
 		targetDescriptions.map(([name, description]) => [
 			name,
-			{ description, active: signal(false), notes: [], detunes: [] },
+			{
+				description,
+				active: signal(false),
+				notes: [],
+				octaves: [],
+				detunes: [],
+			},
 		]),
 	);
 
@@ -248,9 +261,38 @@ export class Kalimba {
 		return strumDelay * factor * slightlyRandom;
 	}
 
-	private chordFrequency(semitones: number, detune: number): number {
+	private chordFrequency(
+		semitones: number,
+		detune: number,
+		octave: number,
+	): number {
 		const frequency = 220 * 2 ** ((this.bassSemitones + semitones) / 12);
-		return this.instrument.remapFrequency(frequency) * 2 ** (detune / 1200);
+		return (
+			this.instrument.remapFrequency(frequency) * octave * 2 ** (detune / 1200)
+		);
+	}
+
+	/**
+	 * Randomly re-voice a chord: pick a shift of up to `voicingSpread`
+	 * semitones either way. A shift up moves the notes within that many
+	 * semitones of the lowest note up an octave; a shift down moves the notes
+	 * within that many semitones of the highest note down an octave. Return
+	 * an octave multiplier for each note.
+	 */
+	private randomOctaves(semitones: number[]): number[] {
+		const spread = this.settings.voicingSpread.value;
+		const shift = Math.floor(Math.random() * (2 * spread + 1)) - spread;
+		const frequencies = semitones.map((st) => this.chordFrequency(st, 0, 1));
+		const lowest = Math.min(...frequencies);
+		const highest = Math.max(...frequencies);
+		const ratio = 2 ** (shift / 12);
+		return frequencies.map((f) =>
+			shift > 0 && f < lowest * ratio
+				? 2
+				: shift < 0 && f > highest * ratio
+					? 0.5
+					: 1,
+		);
 	}
 
 	/**
@@ -265,7 +307,11 @@ export class Kalimba {
 			if (target.description.type === "chord" && target.notes.length) {
 				target.description.semitones.map((semitones, i) => {
 					target.notes[i].setFrequency(
-						this.chordFrequency(semitones, target.detunes[i]),
+						this.chordFrequency(
+							semitones,
+							target.detunes[i],
+							target.octaves[i],
+						),
 					);
 				});
 			}
@@ -314,19 +360,29 @@ export class Kalimba {
 	private playChordNote(
 		semitones: number,
 		detune: number,
+		octave: number,
 		delay: number,
 	): Note {
-		const frequency = this.chordFrequency(semitones, detune);
+		const frequency = this.chordFrequency(semitones, detune, octave);
 		const note = this.instrument.makeNote(this.ctx, frequency, false);
 		note.start(frequency, 0.2, delay, this.output());
 		return note;
 	}
 
-	private playChord(semitones: number[], detunes: number[]): Note[] {
+	private playChord(
+		semitones: number[],
+		detunes: number[],
+		octaves: number[],
+	): Note[] {
 		this.chordSemitones = semitones;
 		this.adjustBassNotes();
 		return semitones.map((st, i) =>
-			this.playChordNote(st, detunes[i], this.noteDelay(i / semitones.length)),
+			this.playChordNote(
+				st,
+				detunes[i],
+				octaves[i],
+				this.noteDelay(i / semitones.length),
+			),
 		);
 	}
 
@@ -344,14 +400,21 @@ export class Kalimba {
 			return false;
 		}
 
+		if (targetName === "special") {
+			target.description.semitones = specialChord(
+				this.settings.specialChord.value,
+			).semitones;
+		}
 		const { type, semitones } = target.description;
 		target.detunes = semitones.map(() => this.randomDetune());
+		target.octaves =
+			type === "chord" ? this.randomOctaves(semitones) : [];
 		const notes =
 			type === "split-last"
 				? [this.playBassNote(this.bassSemitones, "bass-split")]
 				: type === "bass" || type === "bass-split"
 					? [this.playBassNote(semitones[0], type)]
-					: this.playChord(semitones, target.detunes);
+					: this.playChord(semitones, target.detunes, target.octaves);
 		target.active.value = true;
 		target.notes = notes;
 		return true;

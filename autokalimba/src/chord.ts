@@ -18,5 +18,21 @@ export const chords: Chord[] = [
 	{ name: "dim", semitones: [6, 9, 12, 15] },
 	{ name: "13s", semitones: [10, 14, 17, 21] },
 	{ name: "13", semitones: [10, 14, 16, 21] },
-	{ name: "II/", semitones: [9, 14, 12, 18] },
 ];
+
+/**
+ * Choices for the last chord button, which is configurable, as in the
+ * original autokalimba.
+ */
+export const specialChords: (Chord & { description: string })[] = [
+	{ name: "II/", description: "II/", semitones: [9, 14, 12, 18] },
+	{ name: "lyd", description: "maj7♯11", semitones: [11, 14, 16, 18] },
+	{ name: "Δ♯5", description: "maj7♯5", semitones: [8, 11, 12, 16] },
+	{ name: "mΔ", description: "mmaj7", semitones: [7, 11, 12, 15] },
+	{ name: "7♭5", description: "7♭5", semitones: [6, 10, 12, 16] },
+	{ name: "2", description: "add2", semitones: [7, 12, 14, 16] },
+];
+
+export function specialChord(name: string): Chord {
+	return specialChords.find((c) => c.name === name) ?? specialChords[0];
+}

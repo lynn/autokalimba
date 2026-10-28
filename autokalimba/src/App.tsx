@@ -4,7 +4,7 @@ import { KalimbaContext, SettingsContext } from "./global";
 import { useContext, useEffect, useState } from "preact/hooks";
 import { Piano } from "./Piano";
 import { Settings } from "./Settings";
-import { chords } from "./chord";
+import { chords, specialChord } from "./chord";
 
 interface PadProps {
 	cols: number;
@@ -95,6 +95,14 @@ export function App() {
 			key={chord.name}
 		/>
 	));
+	chordButtons.push(
+		<Button
+			bass={false}
+			label={specialChord(settings.specialChord.value).name}
+			targetName="special"
+			key="special"
+		/>,
+	);
 
 	const chordPad = (className?: string) =>
 		horizontalChords ? (

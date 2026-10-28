@@ -101,6 +101,16 @@ export const settings = {
 	 * for a less perfect, chorus-like sound.
 	 */
 	detune: signal(0),
+	/**
+	 * Name of the chord on the configurable last chord button (see
+	 * `specialChords`).
+	 */
+	specialChord: signal("II/"),
+	/**
+	 * Randomly re-voice each chord by up to this many semitones either way:
+	 * moving its lowest notes up an octave, or its highest notes down one.
+	 */
+	voicingSpread: signal(0),
 	synth: synthSettings,
 };
 

@@ -9,6 +9,7 @@ import {
 	type Waveform,
 } from "./global";
 import { instrumentNames } from "./instrument";
+import { specialChords } from "./chord";
 
 interface SliderProps {
 	label: string;
@@ -149,6 +150,23 @@ export function Settings() {
 						/>
 						Split keys
 					</label>
+					<label className="flex flex-row items-center gap-2 whitespace-nowrap">
+						<select
+							className="bg-white/60 rounded px-1"
+							value={settings.specialChord.value}
+							onChange={(e) => {
+								settings.specialChord.value = e.currentTarget.value;
+							}}
+						>
+							{specialChords.map((chord) => (
+								<option key={chord.name} value={chord.name}>
+									{chord.description}
+								</option>
+							))}
+						</select>
+						Special chord
+					</label>
+					<Slider label="Voicing spread" value={settings.voicingSpread} min={0} max={6} step={1} format={(x) => (x ? `±${x}` : "off")} />
 					<Slider label="Detune" value={settings.detune} min={0} max={30} step={1} format={(x) => (x ? `±${x}¢` : "off")} />
 					<Choice
 						label="Instrument"
