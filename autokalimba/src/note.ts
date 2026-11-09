@@ -3,13 +3,15 @@
  */
 export interface Note {
 	/**
-	 * Start playing the note. This can only be called once.
+	 * Start playing the note, optionally sliding up into its pitch. This can
+	 * only be called once.
 	 */
 	start(
 		frequency: number,
 		gain: number,
 		delay: number,
 		destination: AudioNode,
+		slide?: boolean,
 	): void;
 	/**
 	 * Set the frequency of the note as it's playing.
@@ -27,9 +29,42 @@ export interface Sample {
 	only?: "bass" | "chords";
 }
 
+/**
+ * How far below its pitch a sliding note starts, in semitones.
+ */
+const slideSemitones = 1;
+
+/**
+ * How long a sliding note takes to reach its pitch, in seconds.
+ */
+const slideTime = 0.08;
+
+/**
+ * Move a frequency-like `param` to `value`. If the note is still sliding (it
+ * started sliding at `slideStart`), keep sliding, but towards `value`: a bass
+ * note can retune a chord right as it's played.
+ */
+function setPitch(
+	param: AudioParam,
+	value: number,
+	now: number,
+	slideStart: number | undefined,
+) {
+	param.cancelScheduledValues(now);
+	if (slideStart === undefined || now >= slideStart + slideTime) {
+		param.setValueAtTime(value, now);
+		return;
+	}
+	const time = Math.max(now, slideStart);
+	const remaining = (slideStart + slideTime - time) / slideTime;
+	param.setValueAtTime(value * 2 ** ((-slideSemitones * remaining) / 12), time);
+	param.exponentialRampToValueAtTime(value, slideStart + slideTime);
+}
+
 export class SampleNote implements Note {
 	private bufferSource: AudioBufferSourceNode;
 	private gainNode: GainNode;
+	private slideStart: number | undefined;
 
 	constructor(
 		private ctx: AudioContext,
@@ -44,6 +79,7 @@ export class SampleNote implements Note {
 		gain: number,
 		delay: number,
 		destination: AudioNode,
+		slide = false,
 	): void {
 		this.gainNode.gain.value = gain;
 		// const sample = this.instrument.chooseSample(frequency, isBass);
@@ -51,14 +87,19 @@ export class SampleNote implements Note {
 		this.bufferSource.buffer = this.chosenSample.buffer;
 		this.bufferSource.connect(this.gainNode);
 		this.gainNode.connect(destination);
-		this.bufferSource.playbackRate.value =
-			frequency / this.chosenSample.frequency;
-		this.bufferSource.start(this.ctx.currentTime + delay);
+		const startTime = this.ctx.currentTime + delay;
+		if (slide) this.slideStart = startTime;
+		this.setFrequency(frequency);
+		this.bufferSource.start(startTime);
 	}
 
 	setFrequency(frequency: number): void {
-		this.bufferSource.playbackRate.value =
-			frequency / this.chosenSample.frequency;
+		setPitch(
+			this.bufferSource.playbackRate,
+			frequency / this.chosenSample.frequency,
+			this.ctx.currentTime,
+			this.slideStart,
+		);
 	}
 
 	stop(): void {
@@ -183,6 +224,7 @@ export class OscillatorNote implements Note {
 	private modulatorGain: GainNode | undefined;
 	private lfo: OscillatorNode | undefined;
 	private startTime = 0;
+	private slideStart: number | undefined;
 
 	constructor(
 		private ctx: AudioContext,
@@ -198,9 +240,11 @@ export class OscillatorNote implements Note {
 		volume: number,
 		delay: number,
 		destination: AudioNode,
+		slide = false,
 	): void {
 		const { ctx, oscillator, filter, gain, patch } = this;
 		this.startTime = ctx.currentTime + delay;
+		if (slide) this.slideStart = this.startTime;
 
 		if (patch.wave instanceof PeriodicWave) {
 			oscillator.setPeriodicWave(patch.wave);
@@ -211,6 +255,7 @@ export class OscillatorNote implements Note {
 
 		const vibrato = this.startVibrato();
 		if (patch.fm) this.startModulator(frequency, vibrato);
+		if (slide) this.setFrequency(frequency);
 
 		filter.type = patch.filter.type;
 		filter.frequency.value = patch.filter.cutoff;
@@ -287,11 +332,13 @@ export class OscillatorNote implements Note {
 
 	setFrequency(frequency: number): void {
 		const now = this.ctx.currentTime;
-		this.oscillator.frequency.setValueAtTime(frequency, now);
+		setPitch(this.oscillator.frequency, frequency, now, this.slideStart);
 		if (this.modulator && this.patch.fm) {
-			this.modulator.frequency.setValueAtTime(
+			setPitch(
+				this.modulator.frequency,
 				frequency * this.patch.fm.ratio,
 				now,
+				this.slideStart,
 			);
 		}
 	}

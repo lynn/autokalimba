@@ -171,7 +171,8 @@ export function Settings() {
 					<Slider label="Phat (bass boost)" value={settings.phat} min={0} max={1} step={0.01} format={(x) => (x ? percent(x) : "off")} />
 					<Slider label="Strum delay" value={settings.strumDelay} min={0} max={0.2} step={0.01} format={seconds} />
 					<Choice label="Strum style" value={settings.strumStyle} options={strumStyles} />
-					<Slider label="Voicing spread" value={settings.voicingSpread} min={0} max={6} step={1} format={(x) => (x ? `±${x}` : "off")} />
+					<Slider label="Raise lowest note" value={settings.raiseLowestChance} min={0} max={1} step={0.05} format={(x) => (x ? percent(x) : "off")} />
+					<Slider label="Top note slide" value={settings.topSlideChance} min={0} max={1} step={0.05} format={(x) => (x ? percent(x) : "off")} />
 					<Slider label="Detune" value={settings.detune} min={0} max={30} step={1} format={(x) => (x ? `±${x}¢` : "off")} />
 					<Choice
 						label="Instrument"

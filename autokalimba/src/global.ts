@@ -117,11 +117,15 @@ export const settings = {
 	 */
 	phat: signal(0),
 	/**
-	 * Voice each chord as if the bass range slider (`lowestBassNote`) were
-	 * moved by a random number of semitones, up to this many either way. The
-	 * bass notes themselves don't move.
+	 * The probability (from 0 to 1) that a chord is played with its lowest
+	 * note moved up an octave.
 	 */
-	voicingSpread: signal(0),
+	raiseLowestChance: signal(0),
+	/**
+	 * The probability (from 0 to 1) that the highest note of a chord slides up
+	 * into its pitch.
+	 */
+	topSlideChance: signal(0),
 	synth: synthSettings,
 };
 

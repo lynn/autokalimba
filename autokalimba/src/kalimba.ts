@@ -25,15 +25,25 @@ interface Target {
 	 */
 	notes: Note[];
 	/**
-	 * For chord targets: the random voicing shift it was played with (see
-	 * `Settings.voicingSpread`).
+	 * For chord targets: whether it was played with its lowest note an octave
+	 * up (see `Settings.raiseLowestChance`).
 	 */
-	voicingShift: number;
+	raiseLowest: boolean;
+	/**
+	 * When this target was last activated, from `Date.now()`.
+	 */
+	startedAt: number;
 	/**
 	 * Random detune for each note, in cents (see `Settings.detune`).
 	 */
 	detunes: number[];
 }
+
+/**
+ * A new bass note retunes chords that were played less than this many
+ * milliseconds ago; chords held for longer stay where they are.
+ */
+const chordRetuneWindow = 250;
 
 const noteNames: string[] = "a bb b c db d eb e f gb g ab".split(" ");
 
@@ -98,6 +108,7 @@ const qwerty: Record<string, TargetName> = {
 	",": "ø",
 	".": "dim",
 	"/": "special",
+	" ": "split-last",
 };
 
 type DisplayLayout = "touch" | "keyboard" | "steno";
@@ -140,7 +151,8 @@ export class Kalimba {
 				description,
 				active: signal(false),
 				notes: [],
-				voicingShift: 0,
+				raiseLowest: false,
+				startedAt: 0,
 				detunes: [],
 			},
 		]),
@@ -330,16 +342,13 @@ export class Kalimba {
 	 * built on the last bass note played (in the octave chosen by the slider),
 	 * then moved by an octave if it's outside the instrument's range.
 	 *
-	 * `voicingShift` pretends the slider was moved by that many semitones (see
-	 * `Settings.voicingSpread`), and `detune` is in cents.
+	 * `detune` is in cents.
 	 */
-	private chordFrequency(
-		semitones: number,
-		detune: number,
-		voicingShift: number,
-	): number {
-		const lowest = this.settings.lowestBassNote.value + voicingShift;
-		const bass = this.wrapBass(this.bassSemitones, lowest);
+	private chordFrequency(semitones: number, detune: number): number {
+		const bass = this.wrapBass(
+			this.bassSemitones,
+			this.settings.lowestBassNote.value,
+		);
 		const frequency = bass * 2 ** (semitones / 12);
 		return (
 			this.instrument.remapFrequency(frequency) *
@@ -349,12 +358,22 @@ export class Kalimba {
 	}
 
 	/**
-	 * A random voicing shift in semitones, within the spread set in the
-	 * settings.
+	 * The frequencies of a chord's notes, optionally with the lowest one moved
+	 * up an octave. (This comes after folding notes into the instrument's
+	 * range, which would otherwise undo it.)
 	 */
-	private randomVoicingShift(): number {
-		const spread = this.settings.voicingSpread.value;
-		return Math.floor(Math.random() * (2 * spread + 1)) - spread;
+	private chordFrequencies(
+		semitones: number[],
+		detunes: number[],
+		raiseLowest: boolean,
+	): number[] {
+		const frequencies = semitones.map((st, i) =>
+			this.chordFrequency(st, detunes[i]),
+		);
+		if (raiseLowest) {
+			frequencies[frequencies.indexOf(Math.min(...frequencies))] *= 2;
+		}
+		return frequencies;
 	}
 
 	/**
@@ -365,16 +384,19 @@ export class Kalimba {
 	}
 
 	private adjustChordNotes() {
+		const now = Date.now();
 		for (const target of this.targets.values()) {
-			if (target.description.type === "chord" && target.notes.length) {
-				target.description.semitones.map((semitones, i) => {
-					target.notes[i].setFrequency(
-						this.chordFrequency(
-							semitones,
-							target.detunes[i],
-							target.voicingShift,
-						),
-					);
+			if (
+				target.description.type === "chord" &&
+				target.notes.length &&
+				now - target.startedAt < chordRetuneWindow
+			) {
+				this.chordFrequencies(
+					target.description.semitones,
+					target.detunes,
+					target.raiseLowest,
+				).forEach((frequency, i) => {
+					target.notes[i].setFrequency(frequency);
 				});
 			}
 		}
@@ -382,7 +404,8 @@ export class Kalimba {
 
 	private adjustBassNotes() {
 		for (const target of this.targets.values()) {
-			if (target.description.type === "bass-split" && target.notes.length) {
+			const { type } = target.description;
+			if ((type === "bass-split" || type === "split-last") && target.notes.length) {
 				target.description.semitones.map((semitones, i) => {
 					target.notes[i].setFrequency(
 						this.bassFrequency(semitones, "bass-split"),
@@ -424,22 +447,25 @@ export class Kalimba {
 	private playChord(
 		semitones: number[],
 		detunes: number[],
-		voicingShift: number,
+		raiseLowest: boolean,
 	): Note[] {
 		this.chordSemitones = semitones;
 		this.adjustBassNotes();
-		const frequencies = semitones.map((st, i) =>
-			this.chordFrequency(st, detunes[i], voicingShift),
-		);
+		const frequencies = this.chordFrequencies(semitones, detunes, raiseLowest);
 		// Strum from the lowest note up.
 		const sorted = [...frequencies].sort((a, b) => a - b);
-		return frequencies.map((frequency) => {
+		const slidingNote =
+			frequencies.length > 1 &&
+			Math.random() < this.settings.topSlideChance.value
+				? frequencies.indexOf(sorted[sorted.length - 1])
+				: -1;
+		return frequencies.map((frequency, i) => {
 			const delay = this.noteDelay(
 				sorted.indexOf(frequency),
 				frequencies.length,
 			);
 			const note = this.instrument.makeNote(this.ctx, frequency, false);
-			note.start(frequency, 0.2, delay, this.output());
+			note.start(frequency, 0.2, delay, this.output(), i === slidingNote);
 			return note;
 		});
 	}
@@ -463,15 +489,21 @@ export class Kalimba {
 				this.settings.specialChord.value,
 			).semitones;
 		}
+		if (targetName === "split-last") {
+			target.description.semitones = [this.bassSemitones];
+		}
 		const { type, semitones } = target.description;
 		target.detunes = semitones.map(() => this.randomDetune());
-		target.voicingShift = this.randomVoicingShift();
+		target.startedAt = Date.now();
+		target.raiseLowest =
+			semitones.length > 1 &&
+			Math.random() < this.settings.raiseLowestChance.value;
 		const notes =
 			type === "split-last"
-				? [this.playBassNote(this.bassSemitones, "bass-split")]
+				? [this.playBassNote(semitones[0], "bass-split")]
 				: type === "bass" || type === "bass-split"
 					? [this.playBassNote(semitones[0], type)]
-					: this.playChord(semitones, target.detunes, target.voicingShift);
+					: this.playChord(semitones, target.detunes, target.raiseLowest);
 		target.active.value = true;
 		target.notes = notes;
 		return true;
