@@ -18,6 +18,10 @@ export interface Note {
 	 */
 	setFrequency(frequency: number): void;
 	/**
+	 * Bend the note away from its frequency by this many cents.
+	 */
+	setBend(cents: number): void;
+	/**
 	 * Stop playing the note. This can only be called once.
 	 */
 	stop(): void;
@@ -100,6 +104,10 @@ export class SampleNote implements Note {
 			this.ctx.currentTime,
 			this.slideStart,
 		);
+	}
+
+	setBend(cents: number): void {
+		this.bufferSource.detune.setTargetAtTime(cents, this.ctx.currentTime, 0.01);
 	}
 
 	stop(): void {
@@ -341,6 +349,12 @@ export class OscillatorNote implements Note {
 				this.slideStart,
 			);
 		}
+	}
+
+	setBend(cents: number): void {
+		const now = this.ctx.currentTime;
+		this.oscillator.detune.setTargetAtTime(cents, now, 0.01);
+		this.modulator?.detune.setTargetAtTime(cents, now, 0.01);
 	}
 
 	stop(): void {

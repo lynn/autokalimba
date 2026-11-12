@@ -238,6 +238,7 @@ export function App() {
 				paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))",
 				paddingLeft: "max(0.5rem, env(safe-area-inset-left))",
 			}}
+			onPointerMove={(e) => kalimba.pointerMove(e.pointerId, e.clientY)}
 			onPointerUp={(e) => kalimba.pointerUp(e.pointerId)}
 			onPointerLeave={(e) => kalimba.pointerUp(e.pointerId)}
 		>

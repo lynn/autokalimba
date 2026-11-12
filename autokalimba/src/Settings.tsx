@@ -1,6 +1,6 @@
 import type { Signal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
-import { useContext, useState } from "preact/hooks";
+import { useContext, useEffect, useState } from "preact/hooks";
 import {
 	type FilterType,
 	type StrumStyle,
@@ -111,11 +111,32 @@ const waveforms: readonly Waveform[] = [
 const strumStyles: readonly StrumStyle[] = ["random", "up", "down", "timed"];
 const filterTypes: readonly FilterType[] = ["lowpass", "highpass", "bandpass"];
 
+function useFullscreen(): boolean {
+	const [fullscreen, setFullscreen] = useState(
+		() => document.fullscreenElement !== null,
+	);
+	useEffect(() => {
+		const onChange = () => setFullscreen(document.fullscreenElement !== null);
+		document.addEventListener("fullscreenchange", onChange);
+		return () => document.removeEventListener("fullscreenchange", onChange);
+	}, []);
+	return fullscreen;
+}
+
+function toggleFullscreen() {
+	if (document.fullscreenElement) {
+		document.exitFullscreen().catch(() => {});
+	} else {
+		document.documentElement.requestFullscreen().catch(() => {});
+	}
+}
+
 export function Settings() {
 	const settings = useContext(SettingsContext);
 	const kalimba = useContext(KalimbaContext);
 	const [open, setOpen] = useState(false);
 	const synth = settings.synth;
+	const fullscreen = useFullscreen();
 
 	return (
 		<>
@@ -129,8 +150,16 @@ export function Settings() {
 				⚙
 			</button>
 			{open && (
+				// Pressing outside the panel closes it.
 				<div
-					className="fixed z-10 inset-2 sm:right-auto flex flex-col gap-2 p-3 rounded-lg bg-white/90 backdrop-blur overflow-y-auto overscroll-contain shadow-lg touch-pan-y"
+					className="fixed z-10 inset-0"
+					onPointerDown={(e) => e.stopPropagation()}
+					onClick={() => setOpen(false)}
+				/>
+			)}
+			{open && (
+				<div
+					className="fixed z-20 inset-2 sm:right-auto flex flex-col gap-2 p-3 rounded-lg bg-white/90 backdrop-blur overflow-y-auto overscroll-contain shadow-lg touch-pan-y"
 					onPointerDown={(e) => e.stopPropagation()}
 				>
 					<button
@@ -140,6 +169,15 @@ export function Settings() {
 					>
 						Close settings
 					</button>
+					{document.fullscreenEnabled && (
+						<button
+							class="cursor-pointer border-black border px-4 py-1 rounded-full self-start"
+							type="button"
+							onClick={toggleFullscreen}
+						>
+							{fullscreen ? "Exit full screen" : "Full screen"}
+						</button>
+					)}
 					<Slider label="Hue" value={settings.hue} min={-180} max={180} step={1} />
 					<Slider label="Sharps" value={settings.sharps} min={0} max={5} step={1} />
 					<label className="flex flex-row items-center gap-2">

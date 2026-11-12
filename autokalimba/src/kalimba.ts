@@ -45,6 +45,12 @@ interface Target {
  */
 const chordRetuneWindow = 250;
 
+/**
+ * How far chord notes bend when you flick the pointer up or down, in cents per
+ * CSS pixel (as in the original autokalimba).
+ */
+const bendCentsPerPixel = 0.5;
+
 const noteNames: string[] = "a bb b c db d eb e f gb g ab".split(" ");
 
 const bassTargetDescriptions: [string, TargetDescription][] = noteNames.flatMap(
@@ -130,6 +136,12 @@ export class Kalimba {
 	 * target names they are activating.
 	 */
 	private pointers: Map<number, TargetName> = new Map();
+
+	/**
+	 * A map from `pointerId` to the vertical position where it pressed its
+	 * target, for bending chords.
+	 */
+	private pointerStartY: Map<number, number> = new Map();
 
 	/**
 	 * A map from key names to target names, e.g. `"y": "Δ9"`
@@ -538,11 +550,27 @@ export class Kalimba {
 		pointerId: number,
 		targetName: string,
 		displayLayout: DisplayLayout = "touch",
+		clientY?: number,
 	) {
 		if (this.startTarget(targetName)) {
 			this.displayLayout.value = displayLayout;
 			this.pointers.set(pointerId, targetName);
+			if (clientY !== undefined) this.pointerStartY.set(pointerId, clientY);
 		}
+	}
+
+	/**
+	 * Called when a pointer moves. Flicking a chord up or down bends its pitch
+	 * up or down.
+	 */
+	pointerMove(pointerId: number, clientY: number) {
+		const startY = this.pointerStartY.get(pointerId);
+		const targetName = this.pointers.get(pointerId);
+		if (startY === undefined || !targetName) return;
+		const target = this.targets.get(targetName);
+		if (target?.description.type !== "chord") return;
+		const cents = (startY - clientY) * bendCentsPerPixel;
+		for (const note of target.notes) note.setBend(cents);
 	}
 
 	/**
@@ -551,6 +579,7 @@ export class Kalimba {
 	pointerUp(pointerId: number) {
 		const targetName = this.pointers.get(pointerId);
 		this.pointers.delete(pointerId);
+		this.pointerStartY.delete(pointerId);
 		if (!targetName) return;
 		this.stopTarget(targetName);
 	}

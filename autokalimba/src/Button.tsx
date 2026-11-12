@@ -34,7 +34,7 @@ export function Button({ label, targetName, bass }: ButtonProps) {
 				className={`flex-[2] cursor-pointer select-none touch-none ${bg}`}
 				type="button"
 				onPointerDown={(e) => {
-					kalimba.pointerDown(e.pointerId, targetName);
+					kalimba.pointerDown(e.pointerId, targetName, "touch", e.clientY);
 				}}
 				onTouchStart={(e) => {
 					// Prevent selecting them with long taps:
