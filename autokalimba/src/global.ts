@@ -164,7 +164,9 @@ persist("autokalimba-beta", settings);
 export const SettingsContext = createContext(settings);
 
 const ctx = new AudioContext({
-	latencyHint: "interactive",
+	// "interactive" asks for the smallest buffer possible, which runs dry and
+	// crackles on phones. 40ms is still quick enough to play.
+	latencyHint: 0.04,
 });
 
 export const KalimbaContext = createContext(new Kalimba(ctx, settings));
